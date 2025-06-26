@@ -1,0 +1,17 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'test-biblio.blg'
+[37] biber:341> INFO - === Thu Jun 26, 2025, 16:44:36
+[48] Biber.pm:419> INFO - Reading 'test-biblio.bcf'
+[89] Biber.pm:979> INFO - Found 5 citekeys in bib section 0
+[97] Biber.pm:4419> INFO - Processing section 0
+[105] Biber.pm:4610> INFO - Looking for bibtex file 'refs.bib' for section 0
+[106] bibtex.pm:1713> INFO - LaTeX decoding ...
+[109] bibtex.pm:1519> INFO - Found BibTeX data source 'refs.bib'
+[137] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[138] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[138] Biber.pm:4239> INFO - Sorting list 'nyt/global//global/global' of type 'entry' with template 'nyt' and locale 'en-US'
+[138] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[144] bbl.pm:660> INFO - Writing 'test-biblio.bbl' with encoding 'UTF-8'
+[145] bbl.pm:763> INFO - Output to test-biblio.bbl
+[145] Biber.pm:131> WARN - legacy year field 'c. 300 BCE' in entry 'euclid300elements' is not an integer - this will probably not sort properly.
+[145] Biber.pm:133> INFO - WARNINGS: 1

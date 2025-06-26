@@ -1,0 +1,58 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage[backend=biber,style=authoryear-comp,maxcitenames=2]{biblatex}
+\usepackage{csquotes}
+
+% Add a bibliography file
+\addbibresource{refs.bib}
+
+\title{Bibliography Test Document}
+\author{Test Author}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This document tests bibliography functionality with texMini. We cite some famous works here to ensure the bibliography system works correctly.
+
+LaTeX was developed by \textcite{lamport1994latex}, building on \TeX{} by \textcite{knuth1984texbook}. The modern bibliography system uses biblatex and biber \parencite{lehman2022biblatex}.
+
+\section{Mathematics}
+
+The Pythagorean theorem states that $a^2 + b^2 = c^2$ for right triangles. This fundamental result appears in many mathematical contexts \parencite{euclid300elements}.
+
+\section{Modern Typography}
+
+Digital typography has evolved significantly since the early days of computer typesetting \parencite{knuth1979tex}. Modern systems provide sophisticated control over layout and typography.
+
+\section{Citation Examples}
+
+Here are various citation styles:
+
+\begin{itemize}
+    \item Textcite: \textcite{lamport1994latex} developed LaTeX.
+    \item Parencite: LaTeX is a document preparation system \parencite{lamport1994latex}.
+    \item Multiple citations: These works \parencite{knuth1984texbook,lamport1994latex,lehman2022biblatex} are foundational.
+    \item Cite: According to \cite{knuth1984texbook}, \TeX{} is a typesetting system.
+\end{itemize}
+
+\section{Conclusion}
+
+If this document compiles successfully with a properly formatted bibliography, then texMini's bibliography support is working correctly. The bibliography requires multiple compilation passes:
+
+\begin{enumerate}
+    \item First LaTeX run - processes citations, creates .aux file
+    \item Biber run - processes bibliography database, creates .bbl file  
+    \item Second LaTeX run - incorporates bibliography into document
+    \item Third LaTeX run - resolves cross-references
+\end{enumerate}
+
+Each step creates intermediate files that must be preserved until the entire process completes.
+
+\printbibliography
+
+\end{document}

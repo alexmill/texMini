@@ -37,6 +37,8 @@
           "collection-latexrecommended"
           "cm-super"           # Complete Computer Modern font collection
           "lm"                 # Latin Modern fonts
+          "fontenc"            # Font encoding support
+          "textcomp" 
         ];
 
         # --- LaTeX + Bibliography ---
@@ -84,18 +86,8 @@
           
           # Clean up auxiliary files if compilation was successful and auto-clean is enabled
           if [[ $exit_code -eq 0 && "$AUTO_CLEAN" == "true" ]]; then
-            # Use a more conservative cleanup that preserves important intermediate files
-            # during bibliography compilation but still cleans up the workspace
-            
-            # Only remove basic auxiliary files, not bibliography-related ones
-            for ext in aux fls fdb_latexmk log nav out snm toc vrb; do
-              find . -maxdepth 1 -name "*.$ext" -delete 2>/dev/null || true
-            done
-            
-            # Don't remove .bbl, .bcf, .run.xml files as they might be needed for bibliography
-            # Let latexmk handle its own cleanup of bibliography files when it's safe
-            
-            echo "✓ Build successful, basic auxiliary files cleaned (bibliography files preserved)"
+            latexmk -c 2>/dev/null || true  # Don't fail if cleanup fails
+            echo "✓ Build successful, auxiliary files cleaned"
           elif [[ $exit_code -ne 0 ]]; then
             echo "✗ Build failed, keeping auxiliary files for debugging"
           fi

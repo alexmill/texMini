@@ -5,35 +5,87 @@ A minimal TeX Live distribution (~41MB) with intelligent on-demand package loadi
 ## Quick Start
 
 ```bash
-# Basic compilation (minimal LaTeX) - auto-cleans auxiliary files on success
-nix run github:alexmill/texMini#texMini -- -pdf document.tex
+# Basic LaTeX compilation (no bibliography support)
+nix run github:alexmill/texMini#pdflatex -- document.tex
+
+# LaTeX with bibliography support (includes biblatex, biber, csquotes)
+nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
+
+# Different engines - basic LaTeX
+nix run github:alexmill/texMini#lualatex -- document.tex
+nix run github:alexmill/texMini#xelatex -- document.tex
+
+# Different engines - with bibliography
+nix run github:alexmill/texMini#lualatex-biblio -- paper.tex  
+nix run github:alexmill/texMini#xelatex-biblio -- paper.tex
+
+# Use latexmk with any engine (most common)
+nix run github:alexmill/texMini#latexmk -- -pdf document.tex
+nix run github:alexmill/texMini#latexmk-biblio -- -pdf paper.tex
 
 # Keep auxiliary files for debugging
-nix run github:alexmill/texMini#texMini -- -pdf document.tex --no-clean
+nix run github:alexmill/texMini#pdflatex -- document.tex --no-clean
 
-# Add packages on-the-fly with --extra
-nix run github:alexmill/texMini#texMini -- -pdf document.tex --extra biber microtype fontspec
-
-# Continuous compilation with preview (auto-disables cleanup)
-nix run github:alexmill/texMini#texMini -- -pdf -pvc document.tex --extra tikz-cd biblatex
-
-# Works with any latexmk options  
-nix run github:alexmill/texMini#texMini -- -lualatex document.tex --extra fontspec unicode-math
-
-# For local development, use the shell variant
-nix shell github:alexmill/texMini#texMini -c latexmk -pdf document.tex
+# For local development, use nix shell
+nix shell github:alexmill/texMini#texMiniBasic
+# or
+nix shell github:alexmill/texMini#texMiniBiblio
 ```
+
+### Two Simple Levels
+
+texMini provides exactly two levels to cover 99% of LaTeX use cases:
+
+1. **Basic** (`texMiniBasic`): Core LaTeX with math, graphics, hyperlinks, and TikZ
+2. **Bibliography** (`texMiniBiblio`): Everything in Basic + biblatex, biber, and csquotes
+
+No complex package management needed - just choose basic or bibliography support.
 
 ### VS Code LaTeX Workshop Integration
 
-For seamless VS Code integration, use the environment-variable variant:
+For VS Code integration, choose the appropriate level and configure LaTeX Workshop:
 
-```bash
-# Set extra packages via environment variable
-TEXMINI_EXTRA_PACKAGES="microtype fontspec" nix shell github:alexmill/texMini#texMiniEnv -c latexmk -pdf document.tex
-
-# Disable auto-cleanup if needed
-TEXMINI_AUTO_CLEAN=false nix shell github:alexmill/texMini#texMiniEnv -c latexmk -pdf document.tex
+```json
+{
+  "latex-workshop.latex.tools": [
+    {
+      "name": "texmini-basic",
+      "command": "nix",
+      "args": [
+        "run",
+        "github:alexmill/texMini#latexmk",
+        "--",
+        "-pdf",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOC%"
+      ]
+    },
+    {
+      "name": "texmini-biblio",
+      "command": "nix",
+      "args": [
+        "run",
+        "github:alexmill/texMini#latexmk-biblio",
+        "--",
+        "-pdf", 
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOC%"
+      ]
+    }
+  ],
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "texMini Basic",
+      "tools": ["texmini-basic"]
+    },
+    {
+      "name": "texMini + Bibliography", 
+      "tools": ["texmini-biblio"]
+    }
+  ]
+}
 ```
 
 ## Usage Patterns
