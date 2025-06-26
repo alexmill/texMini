@@ -86,7 +86,7 @@
         texMiniWith = extra: makeTexLive (minimalSet ++ extra);
 
         # Create a wrapper that handles extra packages
-        makeSmartWrapper = useEnvVars: pkgs.writeShellScriptBin "latexmk" (''
+        makeSmartWrapper = useEnvVars: name: pkgs.writeShellScriptBin name (''
           set -euo pipefail
           
           # Parse packages based on mode
@@ -172,10 +172,10 @@
         '');
 
         # Smart wrapper for command-line use
-        texMiniSmart = makeSmartWrapper false;
+        texMiniSmart = makeSmartWrapper false "texmini";
         
         # Environment-variable wrapper for VS Code integration  
-        texMiniEnv = makeSmartWrapper true;
+        texMiniEnv = makeSmartWrapper true "latexmk";
 
         # Pre-configured variants for common needs
         texMiniBiblioBase = makeTexLive (minimalSet ++ [ "biblatex" "biber" "csquotes" ]);
@@ -193,6 +193,10 @@
         packages.texMini = pkgs.symlinkJoin {
           name = "texmini-smart";
           paths = [ texMiniSmart texMini ];  # Our wrapper first, then texMini
+          postBuild = ''
+            # Create a latexmk symlink that points to our texmini wrapper for compatibility
+            ln -sf $out/bin/texmini $out/bin/latexmk
+          '';
         };
         
         # Environment-variable driven wrapper (ideal for VS Code integration)
