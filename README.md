@@ -5,26 +5,96 @@ A minimal TeX Live distribution (~41MB) with intelligent on-demand package loadi
 ## Quick Start
 
 ```bash
-# Basic compilation (minimal LaTeX)
+# Basic compilation (minimal LaTeX) - auto-cleans auxiliary files on success
 nix shell .#texMini -c latexmk -pdf document.tex
+
+# Keep auxiliary files for debugging
+nix shell .#texMini -c latexmk -pdf document.tex --no-clean
 
 # Add packages on-the-fly with --extra
 nix shell .#texMini -c latexmk -pdf document.tex --extra biber microtype fontspec
 
-# Continuous compilation with preview
+# Continuous compilation with preview (auto-disables cleanup)
 nix shell .#texMini -c latexmk -pdf -pvc document.tex --extra tikz-cd biblatex
 
 # Works with any latexmk options
 nix shell .#texMini -c latexmk -lualatex document.tex --extra fontspec unicode-math
 ```
 
+### VS Code LaTeX Workshop Integration
+
+For seamless VS Code integration, use the environment-variable variant:
+
+```bash
+# Set extra packages via environment variable
+TEXMINI_EXTRA_PACKAGES="microtype fontspec" nix shell .#texMiniEnv -c latexmk -pdf document.tex
+
+# Disable auto-cleanup if needed
+TEXMINI_AUTO_CLEAN=false nix shell .#texMiniEnv -c latexmk -pdf document.tex
+```
+
+### VS Code LaTeX Workshop Configuration
+
+For VS Code with LaTeX Workshop extension, use this configuration in your `settings.json`:
+
+```json
+{
+  "latex-workshop.latex.tools": [
+    {
+      "name": "texmini-latexmk",
+      "command": "nix",
+      "args": [
+        "shell",
+        "github:alexmill/texMini#texMiniEnv",
+        "-c",
+        "latexmk",
+        "-pdf",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOC%"
+      ],
+      "env": {
+        "TEXMINI_EXTRA_PACKAGES": "microtype fontspec"
+      }
+    },
+    {
+      "name": "texmini-biblio",
+      "command": "nix",
+      "args": [
+        "shell",
+        "github:alexmill/texMini#texMiniBiblio",
+        "-c",
+        "latexmk",
+        "-pdf",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOC%"
+      ],
+      "env": {}
+    }
+  ],
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "texMini",
+      "tools": ["texmini-latexmk"]
+    },
+    {
+      "name": "texMini + Bibliography",
+      "tools": ["texmini-biblio"]
+    }
+  ]
+}
+```
+
 ## Features
 
 - **🚀 Ultra-lean**: <100 MB base installation with essential packages
 - **🧠 Smart loading**: Add packages dynamically with `--extra package1 package2`
+- **🧹 Auto-cleanup**: Removes auxiliary files after successful builds (disable with `--no-clean`)
 - **⚡ Fast**: Pre-built variants for common use cases
 - **🔄 Compatible**: Works with all latexmk options and compilation modes
 - **📦 Reproducible**: Pinned nixpkgs for consistent builds
+- **🎛️ Tool-friendly**: Environment variable interface for VS Code and other tools
 
 ## Pre-configured Variants
 
@@ -119,17 +189,6 @@ How does texMini compare to other LaTeX distributions?
 | TeX Live Scheme-Basic | ~300MB | Official TeX Live basic scheme |
 | TeX Live Full | ~5-7GB | Complete TeX Live installation |
 
-### Verification
-
-You can verify texMini's size claims yourself:
-
-```bash
-# Check sizes of all packages in this flake
-nix eval --file weigh.nix
-
-# Build and measure a specific package
-nix build .#texMini && du -sh result
-```
 
 ## Why texMini?
 

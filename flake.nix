@@ -41,14 +41,66 @@
           "textcomp" 
         ];
 
-        # helper to turn list of strings into attrset expected by texlive.combine
+        # Helper functions
         asAttr = names: builtins.listToAttrs (map (n: { name = n; value = texlive.${n}; }) names);
+        
+        # Validate and filter valid package names
+        validatePackages = packages: 
+          builtins.filter (pkg: texlive ? ${pkg}) packages;
+        
+        # Create texlive combination with validation
+        makeTexLive = packages: 
+          let validPackages = validatePackages packages;
+          in texlive.combine (asAttr validPackages);
 
-        texMini = texlive.combine (asAttr minimalSet);
+        texMini = makeTexLive minimalSet;
 
-        # Smart wrapper that can handle --extra packages
-        texMiniSmart = pkgs.writeShellScriptBin "latexmk" ''
-          # Parse --extra packages
+        # Shared cleanup logic
+        cleanupScript = pkgs.writeShellScript "texmini-cleanup" ''
+          set -euo pipefail
+          
+          # Run latexmk with provided arguments
+          latexmk "$@"
+          exit_code=$?
+          
+          # Parse arguments to determine if cleanup should be disabled
+          AUTO_CLEAN=''${TEXMINI_AUTO_CLEAN:-true}
+          for arg in "$@"; do
+            case "$arg" in
+              -pvc|--no-clean) AUTO_CLEAN=false ;;
+            esac
+          done
+          
+          # Clean up auxiliary files if compilation was successful and auto-clean is enabled
+          if [[ $exit_code -eq 0 && "$AUTO_CLEAN" == "true" ]]; then
+            latexmk -c 2>/dev/null || true  # Don't fail if cleanup fails
+            echo "✓ Build successful, auxiliary files cleaned"
+          elif [[ $exit_code -ne 0 ]]; then
+            echo "✗ Build failed, keeping auxiliary files for debugging"
+          fi
+          
+          exit $exit_code
+        '';
+
+        # Create texlive package with extra packages
+        texMiniWith = extra: makeTexLive (minimalSet ++ extra);
+
+        # Create a wrapper that handles extra packages
+        makeSmartWrapper = useEnvVars: pkgs.writeShellScriptBin "latexmk" (''
+          set -euo pipefail
+          
+          # Parse packages based on mode
+        '' + (if useEnvVars then ''
+          # Environment variable mode (for VS Code integration)
+          EXTRA_PACKAGES_STR="''${TEXMINI_EXTRA_PACKAGES:-}"
+          if [[ -n "$EXTRA_PACKAGES_STR" ]]; then
+            IFS=' ,' read -ra EXTRA_PACKAGES <<< "$EXTRA_PACKAGES_STR"
+          else
+            EXTRA_PACKAGES=()
+          fi
+          LATEXMK_ARGS=("$@")
+        '' else ''
+          # Command line flag mode
           EXTRA_PACKAGES=()
           LATEXMK_ARGS=()
           
@@ -56,7 +108,6 @@
             case $1 in
               --extra)
                 shift
-                # Collect packages until we hit another flag or end
                 while [[ $# -gt 0 && $1 != -* ]]; do
                   EXTRA_PACKAGES+=("$1")
                   shift
@@ -68,54 +119,105 @@
                 ;;
             esac
           done
+        '') + ''
           
           if [ ''${#EXTRA_PACKAGES[@]} -eq 0 ]; then
             # No extra packages, use basic texMini
-            exec ${texMini}/bin/latexmk "''${LATEXMK_ARGS[@]}"
+            export PATH="${texMini}/bin:$PATH"
+            exec ${cleanupScript} "''${LATEXMK_ARGS[@]}"
           else
-            # Build nix expression with extra packages
-            EXTRA_LIST=$(printf '"%s" ' "''${EXTRA_PACKAGES[@]}")
-            EXTRA_LIST="[ $EXTRA_LIST]"
+            # Validate packages exist
+            VALID_PACKAGES=()
+            INVALID_PACKAGES=()
             
-            echo "Building with extra packages: ''${EXTRA_PACKAGES[*]}"
-            
-            # Use nix shell with the extended texlive - find flake.nix in current dir
-            FLAKE_DIR="$PWD"
-            while [[ "$FLAKE_DIR" != "/" && ! -f "$FLAKE_DIR/flake.nix" ]]; do
-              FLAKE_DIR=$(dirname "$FLAKE_DIR")
+            for pkg in "''${EXTRA_PACKAGES[@]}"; do
+              # Simple validation - check if package looks reasonable
+              if [[ "$pkg" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+                VALID_PACKAGES+=("$pkg")
+              else
+                INVALID_PACKAGES+=("$pkg")
+              fi
             done
             
-            if [[ -f "$FLAKE_DIR/flake.nix" ]]; then
-              cd "$FLAKE_DIR"
-              exec nix shell --impure --expr "
+            if [ ''${#INVALID_PACKAGES[@]} -gt 0 ]; then
+              echo "Warning: Skipping invalid package names: ''${INVALID_PACKAGES[*]}" >&2
+            fi
+            
+            if [ ''${#VALID_PACKAGES[@]} -eq 0 ]; then
+              echo "No valid extra packages specified, using basic texMini"
+              export PATH="${texMini}/bin:$PATH"
+              exec ${cleanupScript} "''${LATEXMK_ARGS[@]}"
+            fi
+            
+            echo "Building with extra packages: ''${VALID_PACKAGES[*]}"
+            
+            # Create nix expression for extended texlive
+            PACKAGES_NIX="[ "
+            for pkg in "''${VALID_PACKAGES[@]}"; do
+              PACKAGES_NIX+="\"$pkg\" "
+            done
+            PACKAGES_NIX+="]"
+            
+            exec ${pkgs.nix}/bin/nix shell \
+              --expr "
                 let
-                  flake = builtins.getFlake (toString ./.);
+                  flake = builtins.getFlake (toString ${./.});
                   system = builtins.currentSystem;
                 in
-                  flake.lib.\''${system}.texMiniWith { extra = $EXTRA_LIST; }
-              " -c latexmk "''${LATEXMK_ARGS[@]}"
-            else
-              echo "Error: Could not find flake.nix in current directory or parent directories"
-              echo "Please run from within the texMini repository"
-              exit 1
-            fi
+                  flake.lib.\''${system}.texMiniWith { extra = $PACKAGES_NIX; }
+              " \
+              --impure \
+              -c ${cleanupScript} "''${LATEXMK_ARGS[@]}"
           fi
+        '');
+
+        # Smart wrapper for command-line use
+        texMiniSmart = makeSmartWrapper false;
+        
+        # Environment-variable wrapper for VS Code integration  
+        texMiniEnv = makeSmartWrapper true;
+
+        # Pre-configured variants for common needs
+        texMiniBiblioBase = makeTexLive (minimalSet ++ [ "biblatex" "biber" "csquotes" ]);
+        texMiniTypoBase = makeTexLive (minimalSet ++ [ "microtype" "fontspec" "unicode-math" ]);
+        texMiniGraphicsBase = makeTexLive (minimalSet ++ [ "tikz-cd" "pgfplots" "circuitikz" ]);
+        
+        # Create auto-cleanup wrappers for the variants
+        makeCleanupWrapper = texlivePkg: pkgs.writeShellScriptBin "latexmk" ''
+          export PATH="${texlivePkg}/bin:$PATH"
+          exec ${cleanupScript} "$@"
         '';
 
       in {
-        # nix build .#texMini       → < 80 MB store path with smart --extra support
+        # nix build .#texMini       → < 80 MB store path with smart --extra support and auto-cleanup
         packages.texMini = pkgs.symlinkJoin {
           name = "texmini-smart";
           paths = [ texMiniSmart texMini ];  # Our wrapper first, then texMini
         };
         
+        # Environment-variable driven wrapper (ideal for VS Code integration)
+        packages.texMiniEnv = pkgs.symlinkJoin {
+          name = "texmini-env";
+          paths = [ texMiniEnv texMini ];
+        };
+        
         # Basic texMini without smart wrapper (for reference)
         packages.texMiniBasic = texMini;
         
-        # Pre-configured variants for common needs
-        packages.texMiniBiblio = texlive.combine (asAttr (minimalSet ++ [ "biblatex" "biber" "csquotes" ]));
-        packages.texMiniTypo = texlive.combine (asAttr (minimalSet ++ [ "microtype" "fontspec" "unicode-math" ]));
-        packages.texMiniGraphics = texlive.combine (asAttr (minimalSet ++ [ "tikz-cd" "pgfplots" "circuitikz" ]));
+        packages.texMiniBiblio = pkgs.symlinkJoin {
+          name = "texmini-biblio";
+          paths = [ (makeCleanupWrapper texMiniBiblioBase) texMiniBiblioBase ];
+        };
+        
+        packages.texMiniTypo = pkgs.symlinkJoin {
+          name = "texmini-typo";
+          paths = [ (makeCleanupWrapper texMiniTypoBase) texMiniTypoBase ];
+        };
+        
+        packages.texMiniGraphics = pkgs.symlinkJoin {
+          name = "texmini-graphics";
+          paths = [ (makeCleanupWrapper texMiniGraphicsBase) texMiniGraphicsBase ];
+        };
 
         # dev shell for quick tests: pdflatex + tlmgr exposed
         devShells.default = pkgs.mkShell {
@@ -124,29 +226,26 @@
         };
 
         lib.texMiniWith = { extra ? [] }:
-          texlive.combine (asAttr (minimalSet ++ extra));
+          makeTexLive (minimalSet ++ extra);
       }) // {
         # expose a helper so others can extend this baseline (system-independent)
-        overlays.default = final: prev: {
-          texMini = prev.texlive.combine (
-            builtins.listToAttrs (map (n: { name = n; value = prev.texlive.${n}; }) [
+        overlays.default = final: prev: 
+          let
+            # Define minimalSet in overlay scope for consistency
+            overlayMinimalSet = [
               "scheme-infraonly" "latex-bin" "amsmath" "amsfonts" "amscls" "geometry"
               "hyperref" "xcolor" "graphics" "babel" "latexmk" "framed" "ucs" "ec"
               "pgf" "pdftexcmds" "infwarerr" "kvoptions" "etoolbox" "refcount"
               "collection-latexrecommended"
-            ])
-          );
-          texMiniWith = { extra ? [] }: 
-            let
-              minimalSet = [
-                "scheme-infraonly" "latex-bin" "amsmath" "amsfonts" "amscls" "geometry"
-                "hyperref" "xcolor" "graphics" "babel" "latexmk" "framed" "ucs" "ec"
-                "pgf" "pdftexcmds" "infwarerr" "kvoptions" "etoolbox" "refcount"
-                "collection-latexrecommended"
-              ];
-              asAttr = names: builtins.listToAttrs (map (n: { name = n; value = prev.texlive.${n}; }) names);
-            in
-              prev.texlive.combine (asAttr (minimalSet ++ extra));
-        };
+            ];
+            asAttr = names: builtins.listToAttrs (map (n: { name = n; value = prev.texlive.${n}; }) names);
+            validatePackages = packages: builtins.filter (pkg: prev.texlive ? ${pkg}) packages;
+            makeTexLive = packages: 
+              let validPackages = validatePackages packages;
+              in prev.texlive.combine (asAttr validPackages);
+          in {
+            texMini = makeTexLive overlayMinimalSet;
+            texMiniWith = { extra ? [] }: makeTexLive (overlayMinimalSet ++ extra);
+          };
       };
 }
