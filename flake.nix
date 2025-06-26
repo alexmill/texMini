@@ -59,17 +59,29 @@
         cleanupScript = pkgs.writeShellScript "texmini-cleanup" ''
           set -euo pipefail
           
-          # Run latexmk with provided arguments
-          latexmk "$@"
-          exit_code=$?
-          
-          # Parse arguments to determine if cleanup should be disabled
+          # Parse arguments to determine if cleanup should be disabled and filter out custom flags
           AUTO_CLEAN=''${TEXMINI_AUTO_CLEAN:-true}
+          LATEXMK_ARGS=()
+          
           for arg in "$@"; do
             case "$arg" in
-              -pvc|--no-clean) AUTO_CLEAN=false ;;
+              -pvc) 
+                AUTO_CLEAN=false
+                LATEXMK_ARGS+=("$arg")
+                ;;
+              --no-clean) 
+                AUTO_CLEAN=false
+                # Don't pass this custom flag to latexmk
+                ;;
+              *)
+                LATEXMK_ARGS+=("$arg")
+                ;;
             esac
           done
+          
+          # Run latexmk with filtered arguments
+          latexmk "''${LATEXMK_ARGS[@]}"
+          exit_code=$?
           
           # Clean up auxiliary files if compilation was successful and auto-clean is enabled
           if [[ $exit_code -eq 0 && "$AUTO_CLEAN" == "true" ]]; then
