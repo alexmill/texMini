@@ -1,0 +1,20 @@
+\documentclass{article}
+\usepackage[backend=biber,style=authoryear]{biblatex}
+\usepackage{csquotes}
+
+\addbibresource{references.bib}
+
+\title{Auto-Detection Test}
+\author{Test Author}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This document tests auto-detection of both .tex and .bib files. We cite \textcite{testwork2024} here.
+
+\printbibliography
+
+\end{document}

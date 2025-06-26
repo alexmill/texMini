@@ -78,24 +78,95 @@
             esac
           done
           
+          # Auto-detect .tex file if no explicit file is provided
+          # Check if we have any .tex files in the arguments
+          has_tex_file=false
+          detected_tex_file=""
+          for arg in "''${LATEXMK_ARGS[@]}"; do
+            if [[ "$arg" == *.tex ]]; then
+              has_tex_file=true
+              detected_tex_file="$arg"
+              break
+            fi
+          done
+          
+          # If no .tex file specified, try to auto-detect
+          if [[ "$has_tex_file" == "false" ]]; then
+            # Check if there's exactly one .tex file in the current directory
+            tex_files=(*.tex)
+            if [ ''${#tex_files[@]} -eq 1 ] && [ -f "''${tex_files[0]}" ]; then
+              echo "Auto-detected LaTeX file: ''${tex_files[0]}"
+              LATEXMK_ARGS+=("''${tex_files[0]}")
+              detected_tex_file="''${tex_files[0]}"
+            else
+              echo "Error: No .tex file specified and unable to auto-detect."
+              if [ ''${#tex_files[@]} -eq 0 ]; then
+                echo "No .tex files found in current directory."
+              elif [ ''${#tex_files[@]} -gt 1 ]; then
+                echo "Multiple .tex files found: ''${tex_files[*]}"
+                echo "Please specify which file to compile."
+              fi
+              exit 1
+            fi
+          fi
+          
+          # Auto-detect bibliography setup if the .tex file uses biblatex/biber
+          if [[ -n "$detected_tex_file" && -f "$detected_tex_file" ]]; then
+            # Check if the .tex file uses biblatex or bibliography commands
+            if grep -q -E '\\(usepackage.*biblatex|bibliography\{|addbibresource\{)' "$detected_tex_file"; then
+              echo "Detected bibliography usage in $detected_tex_file"
+              
+              # Check if there's exactly one .bib file in the current directory
+              bib_files=(*.bib)
+              if [ ''${#bib_files[@]} -eq 1 ] && [ -f "''${bib_files[0]}" ]; then
+                echo "Auto-detected bibliography file: ''${bib_files[0]}"
+                
+                # Check if the .tex file already references this .bib file
+                if ! grep -q "''${bib_files[0]}" "$detected_tex_file"; then
+                  echo "Warning: Bibliography file ''${bib_files[0]} found but not referenced in $detected_tex_file"
+                  echo "You may need to add \\addbibresource{''${bib_files[0]}} to your document"
+                fi
+              elif [ ''${#bib_files[@]} -eq 0 ]; then
+                echo "Warning: Bibliography commands found in $detected_tex_file but no .bib files found"
+              elif [ ''${#bib_files[@]} -gt 1 ]; then
+                echo "Info: Multiple .bib files found: ''${bib_files[*]}"
+                echo "Make sure the correct one is referenced in your document"
+              fi
+            fi
+          fi
+          
           # Run latexmk with filtered arguments
           latexmk "''${LATEXMK_ARGS[@]}"
           exit_code=$?
           
           # Clean up auxiliary files if compilation was successful and auto-clean is enabled
           if [[ $exit_code -eq 0 && "$AUTO_CLEAN" == "true" ]]; then
-            # Use a more conservative cleanup that preserves important intermediate files
-            # during bibliography compilation but still cleans up the workspace
+            # After successful compilation, clean up ALL auxiliary files
+            # Keep only: .tex (source), .bib (bibliography database), .pdf (output)
             
-            # Only remove basic auxiliary files, not bibliography-related ones
-            for ext in aux fls fdb_latexmk log nav out snm toc vrb; do
-              find . -maxdepth 1 -name "*.$ext" -delete 2>/dev/null || true
+            # Get the base name from the first argument (assuming it's the .tex file)
+            basename=""
+            for arg in "''${LATEXMK_ARGS[@]}"; do
+              if [[ "$arg" == *.tex ]]; then
+                basename="''${arg%.tex}"
+                break
+              fi
             done
             
-            # Don't remove .bbl, .bcf, .run.xml files as they might be needed for bibliography
-            # Let latexmk handle its own cleanup of bibliography files when it's safe
-            
-            echo "✓ Build successful, basic auxiliary files cleaned (bibliography files preserved)"
+            if [[ -n "$basename" ]]; then
+              # Remove all auxiliary files for this document
+              for ext in aux bbl bcf blg fls fdb_latexmk log nav out snm toc vrb run.xml; do
+                rm -f "$basename.$ext" 2>/dev/null || true
+              done
+              echo "✓ Build successful, all auxiliary files cleaned (kept: .tex, .bib, .pdf)"
+            else
+              # Fallback: remove common auxiliary file extensions
+              for ext in aux bbl bcf blg fls fdb_latexmk log nav out snm toc vrb; do
+                find . -maxdepth 1 -name "*.$ext" -delete 2>/dev/null || true
+              done
+              find . -maxdepth 1 -name "*.run.xml" -delete 2>/dev/null || true
+              echo "✓ Build successful, auxiliary files cleaned"
+            fi
           elif [[ $exit_code -ne 0 ]]; then
             echo "✗ Build failed, keeping auxiliary files for debugging"
           fi
