@@ -6,19 +6,22 @@ A minimal TeX Live distribution (~41MB) with intelligent on-demand package loadi
 
 ```bash
 # Basic compilation (minimal LaTeX) - auto-cleans auxiliary files on success
-nix shell .#texMini -c latexmk -pdf document.tex
+nix run github:alexmill/texMini#texMini -- -pdf document.tex
 
 # Keep auxiliary files for debugging
-nix shell .#texMini -c latexmk -pdf document.tex --no-clean
+nix run github:alexmill/texMini#texMini -- -pdf document.tex --no-clean
 
 # Add packages on-the-fly with --extra
-nix shell .#texMini -c latexmk -pdf document.tex --extra biber microtype fontspec
+nix run github:alexmill/texMini#texMini -- -pdf document.tex --extra biber microtype fontspec
 
 # Continuous compilation with preview (auto-disables cleanup)
-nix shell .#texMini -c latexmk -pdf -pvc document.tex --extra tikz-cd biblatex
+nix run github:alexmill/texMini#texMini -- -pdf -pvc document.tex --extra tikz-cd biblatex
 
-# Works with any latexmk options
-nix shell .#texMini -c latexmk -lualatex document.tex --extra fontspec unicode-math
+# Works with any latexmk options  
+nix run github:alexmill/texMini#texMini -- -lualatex document.tex --extra fontspec unicode-math
+
+# For local development, use the shell variant
+nix shell github:alexmill/texMini#texMini -c latexmk -pdf document.tex
 ```
 
 ### VS Code LaTeX Workshop Integration
@@ -27,10 +30,33 @@ For seamless VS Code integration, use the environment-variable variant:
 
 ```bash
 # Set extra packages via environment variable
-TEXMINI_EXTRA_PACKAGES="microtype fontspec" nix shell .#texMiniEnv -c latexmk -pdf document.tex
+TEXMINI_EXTRA_PACKAGES="microtype fontspec" nix shell github:alexmill/texMini#texMiniEnv -c latexmk -pdf document.tex
 
 # Disable auto-cleanup if needed
-TEXMINI_AUTO_CLEAN=false nix shell .#texMiniEnv -c latexmk -pdf document.tex
+TEXMINI_AUTO_CLEAN=false nix shell github:alexmill/texMini#texMiniEnv -c latexmk -pdf document.tex
+```
+
+## Usage Patterns
+
+### One-off Compilation
+Use `nix run` for quick compilation without entering a shell:
+```bash
+nix run github:alexmill/texMini#texMini -- -pdf document.tex
+```
+
+### Development Shell
+Use `nix shell` for interactive development where you'll run multiple commands:
+```bash
+nix shell github:alexmill/texMini#texMini
+# Now you have latexmk and texMini wrapper available in your PATH
+latexmk -pdf document.tex
+texmini -pdf document.tex --extra tikz-cd
+```
+
+### Environment Integration
+Use the environment-variable variant for tool integration (VS Code, editors, CI/CD):
+```bash
+TEXMINI_EXTRA_PACKAGES="biblatex biber" nix shell github:alexmill/texMini#texMiniEnv -c latexmk -pdf paper.tex
 ```
 
 ### VS Code LaTeX Workshop Configuration
@@ -88,13 +114,31 @@ For VS Code with LaTeX Workshop extension, use this configuration in your `setti
 
 ## Features
 
-- **🚀 Ultra-lean**: <100 MB base installation with essential packages
+- **🚀 Ultra-lean**: ~41MB base installation with essential packages
 - **🧠 Smart loading**: Add packages dynamically with `--extra package1 package2`
-- **🧹 Auto-cleanup**: Removes auxiliary files after successful builds (disable with `--no-clean`)
-- **⚡ Fast**: Pre-built variants for common use cases
-- **🔄 Compatible**: Works with all latexmk options and compilation modes
-- **📦 Reproducible**: Pinned nixpkgs for consistent builds
-- **🎛️ Tool-friendly**: Environment variable interface for VS Code and other tools
+- **🧹 Auto-cleanup**: Removes auxiliary files after successful builds (disable with `--no-clean` or `TEXMINI_AUTO_CLEAN=false`)
+- **📁 Filename-agnostic**: Works with any document name and cleans corresponding auxiliary files
+- **⚡ Fast**: Pre-built variants for common use cases (biblio, typography, graphics)
+- **🔄 Compatible**: Works with all latexmk options and compilation modes (pdflatex, lualatex, xelatex)
+- **📦 Reproducible**: Pinned nixpkgs for consistent builds across machines
+- **🎛️ Tool-friendly**: Environment variable interface for VS Code and other editors
+- **🌐 Zero-install**: Run directly from GitHub without local installation
+
+## Automatic Cleanup
+
+texMini automatically cleans auxiliary files (`.aux`, `.log`, `.fls`, `.fdb_latexmk`) after successful compilation to keep your workspace tidy. This works with any filename:
+
+- **✅ Successful build**: Auxiliary files are cleaned automatically
+- **❌ Failed build**: Auxiliary files are preserved for debugging
+- **🔄 Continuous mode (`-pvc`)**: Cleanup is disabled automatically
+- **🛑 Manual override**: Use `--no-clean` flag or `TEXMINI_AUTO_CLEAN=false`
+
+```bash
+# These all work the same regardless of filename:
+nix run github:alexmill/texMini#texMini -- -pdf my-thesis.tex           # Cleans my-thesis.aux, etc.
+nix run github:alexmill/texMini#texMini -- -pdf report_final_v3.tex     # Cleans report_final_v3.aux, etc.  
+nix run github:alexmill/texMini#texMini -- -pdf document.tex --no-clean # Keeps all auxiliary files
+```
 
 ## Pre-configured Variants
 
@@ -102,13 +146,13 @@ Skip the `--extra` flag for common document types:
 
 ```bash
 # Bibliography documents (includes biblatex, biber, csquotes)
-nix shell .#texMiniBiblio -c latexmk -pdf paper.tex
+nix shell github:alexmill/texMini#texMiniBiblio -c latexmk -pdf paper.tex
 
 # Typography-focused (includes microtype, fontspec, unicode-math)
-nix shell .#texMiniTypo -c latexmk -pdf article.tex
+nix shell github:alexmill/texMini#texMiniTypo -c latexmk -pdf article.tex
 
 # Graphics/TikZ documents (includes tikz-cd, pgfplots, circuitikz)
-nix shell .#texMiniGraphics -c latexmk -pdf diagrams.tex
+nix shell github:alexmill/texMini#texMiniGraphics -c latexmk -pdf diagrams.tex
 ```
 
 ## Advanced Usage
@@ -119,7 +163,7 @@ nix shell .#texMiniGraphics -c latexmk -pdf diagrams.tex
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    texMini.url = "github:yourusername/texMini";
+    texMini.url = "github:alexmill/texMini";
   };
   
   outputs = { self, nixpkgs, texMini }:
@@ -182,13 +226,40 @@ How does texMini compare to other LaTeX distributions?
 
 | Distribution | Base Size | Notes |
 |--------------|-----------|-------|
-| **texMini** | **~41MB** | This project - measured with `nix eval --file weigh.nix` |
+| **texMini** | **~41MB** | This project - ultra-minimal but complete |
 | TinyTeX | ~200MB | R-focused minimal TeX Live |
 | MiKTeX Basic | ~200MB | Windows-focused basic installation |
 | BasicTeX (MacTeX) | ~100MB | macOS minimal TeX Live subset |
 | TeX Live Scheme-Basic | ~300MB | Official TeX Live basic scheme |
 | TeX Live Full | ~5-7GB | Complete TeX Live installation |
 
+**texMini achieves 10x size reduction** compared to other minimal distributions while maintaining full LaTeX functionality through smart on-demand package loading.
+
+
+## Troubleshooting
+
+### Common Issues
+
+**Q: Package not found error**
+```bash
+# If you get "Package X not found", add it with --extra:
+nix run github:alexmill/texMini#texMini -- -pdf document.tex --extra X
+```
+
+**Q: Want to keep auxiliary files for debugging**
+```bash
+# Use --no-clean flag:
+nix run github:alexmill/texMini#texMini -- -pdf document.tex --no-clean
+```
+
+**Q: VS Code integration not working**
+- Ensure you're using the `texMiniEnv` variant in your settings
+- Check that environment variables are set correctly
+- Verify the LaTeX Workshop extension is installed
+
+**Q: Slow first run**
+- texMini downloads ~41MB on first use - subsequent runs are cached
+- Use `nix shell` for development sessions to avoid repeated downloads
 
 ## Why texMini?
 
