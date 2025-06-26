@@ -196,6 +196,8 @@
           postBuild = ''
             # Create a latexmk symlink that points to our texmini wrapper for compatibility
             ln -sf $out/bin/texmini $out/bin/latexmk
+            # Create the expected executable name for nix run
+            ln -sf $out/bin/texmini $out/bin/texmini-smart
           '';
         };
         
