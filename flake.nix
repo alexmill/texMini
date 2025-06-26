@@ -35,6 +35,10 @@
           "etoolbox"
           "refcount"
           "collection-latexrecommended"
+          "cm-super"     # Complete Computer Modern font collection including the missing tcrm1095
+          "lm"           # Latin Modern fonts (better quality replacement for CM)
+          "fontenc"      # Font encoding support
+          "textcomp" 
         ];
 
         # helper to turn list of strings into attrset expected by texlive.combine
