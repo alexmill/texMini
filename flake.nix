@@ -1,5 +1,5 @@
 {
-  description = "Ultra-lean TeX Live (~41MB) with smart package loading";
+  description = "Ultra-lean TeX Live (~41MB) with smart package loading and bibliography support by default";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
@@ -53,14 +53,19 @@
         # Base distributions
         texMiniBasic = makeTexLive basicPackages;
         texMiniBiblio = makeTexLive biblioPackages;
+        
+        # Default is now bibliography-enabled for better compatibility
+        texMiniDefault = texMiniBiblio;
 
         # Cleanup script
         cleanupScript = pkgs.writeShellScript "texmini-cleanup" ''
           set -euo pipefail
           
-          # Parse arguments to determine if cleanup should be disabled and filter out custom flags
+          # Parse arguments to determine if cleanup should be disabled and separate file arguments
           AUTO_CLEAN=''${TEXMINI_AUTO_CLEAN:-true}
           LATEXMK_ARGS=()
+          TEX_FILE=""
+          BIB_FILES=()
           
           for arg in "$@"; do
             case "$arg" in
@@ -72,23 +77,33 @@
                 AUTO_CLEAN=false
                 # Don't pass this custom flag to latexmk
                 ;;
+              *.tex)
+                if [[ -z "$TEX_FILE" ]]; then
+                  TEX_FILE="$arg"
+                  LATEXMK_ARGS+=("$arg")
+                else
+                  echo "Error: Multiple .tex files specified: $TEX_FILE and $arg"
+                  echo "Please specify only one .tex file to compile."
+                  exit 1
+                fi
+                ;;
+              *.bib)
+                BIB_FILES+=("$arg")
+                # Don't add .bib files to latexmk args - they're handled automatically
+                ;;
               *)
                 LATEXMK_ARGS+=("$arg")
                 ;;
             esac
           done
           
-          # Auto-detect .tex file if no explicit file is provided
-          # Check if we have any .tex files in the arguments
+          # If TEX_FILE is set, we have an explicit .tex file
           has_tex_file=false
           detected_tex_file=""
-          for arg in "''${LATEXMK_ARGS[@]}"; do
-            if [[ "$arg" == *.tex ]]; then
-              has_tex_file=true
-              detected_tex_file="$arg"
-              break
-            fi
-          done
+          if [[ -n "$TEX_FILE" ]]; then
+            has_tex_file=true
+            detected_tex_file="$TEX_FILE"
+          fi
           
           # If no .tex file specified, try to auto-detect
           if [[ "$has_tex_file" == "false" ]]; then
@@ -116,21 +131,43 @@
             if grep -q -E '\\(usepackage.*biblatex|bibliography\{|addbibresource\{)' "$detected_tex_file"; then
               echo "Detected bibliography usage in $detected_tex_file"
               
-              # Check if there's exactly one .bib file in the current directory
-              bib_files=(*.bib)
-              if [ ''${#bib_files[@]} -eq 1 ] && [ -f "''${bib_files[0]}" ]; then
-                echo "Auto-detected bibliography file: ''${bib_files[0]}"
+              # Use explicitly specified .bib files if provided
+              if [ ''${#BIB_FILES[@]} -gt 0 ]; then
+                echo "Using explicitly specified bibliography files: ''${BIB_FILES[*]}"
                 
-                # Check if the .tex file already references this .bib file
-                if ! grep -q "''${bib_files[0]}" "$detected_tex_file"; then
-                  echo "Warning: Bibliography file ''${bib_files[0]} found but not referenced in $detected_tex_file"
-                  echo "You may need to add \\addbibresource{''${bib_files[0]}} to your document"
+                # Validate that all specified .bib files exist
+                for bib_file in "''${BIB_FILES[@]}"; do
+                  if [[ ! -f "$bib_file" ]]; then
+                    echo "Error: Specified bibliography file '$bib_file' not found"
+                    exit 1
+                  fi
+                done
+                
+                # Check if the .tex file references the specified .bib files
+                for bib_file in "''${BIB_FILES[@]}"; do
+                  if ! grep -q "$bib_file" "$detected_tex_file"; then
+                    echo "Warning: Bibliography file $bib_file specified but not referenced in $detected_tex_file"
+                    echo "You may need to add \\addbibresource{$bib_file} to your document"
+                  fi
+                done
+              else
+                # Auto-detect .bib files as before
+                bib_files=(*.bib)
+                if [ ''${#bib_files[@]} -eq 1 ] && [ -f "''${bib_files[0]}" ]; then
+                  echo "Auto-detected bibliography file: ''${bib_files[0]}"
+                  
+                  # Check if the .tex file already references this .bib file
+                  if ! grep -q "''${bib_files[0]}" "$detected_tex_file"; then
+                    echo "Warning: Bibliography file ''${bib_files[0]} found but not referenced in $detected_tex_file"
+                    echo "You may need to add \\addbibresource{''${bib_files[0]}} to your document"
+                  fi
+                elif [ ''${#bib_files[@]} -eq 0 ]; then
+                  echo "Warning: Bibliography commands found in $detected_tex_file but no .bib files found"
+                elif [ ''${#bib_files[@]} -gt 1 ]; then
+                  echo "Info: Multiple .bib files found: ''${bib_files[*]}"
+                  echo "Make sure the correct ones are referenced in your document"
+                  echo "Or specify explicitly: nix run . -- $detected_tex_file file1.bib file2.bib"
                 fi
-              elif [ ''${#bib_files[@]} -eq 0 ]; then
-                echo "Warning: Bibliography commands found in $detected_tex_file but no .bib files found"
-              elif [ ''${#bib_files[@]} -gt 1 ]; then
-                echo "Info: Multiple .bib files found: ''${bib_files[*]}"
-                echo "Make sure the correct one is referenced in your document"
               fi
             fi
           fi
@@ -187,13 +224,19 @@
 
       in {
         packages = {
-          # Basic LaTeX commands (no bibliography)
-          pdflatex = makePdfLatexCommand "pdflatex" texMiniBasic;
-          lualatex = makeLuaLatexCommand "lualatex" texMiniBasic;
-          xelatex = makeXeLatexCommand "xelatex" texMiniBasic;
-          latexmk = makePdfLatexCommand "latexmk" texMiniBasic;
+          # Default LaTeX commands (now with bibliography support)
+          pdflatex = makePdfLatexCommand "pdflatex" texMiniDefault;
+          lualatex = makeLuaLatexCommand "lualatex" texMiniDefault;
+          xelatex = makeXeLatexCommand "xelatex" texMiniDefault;
+          latexmk = makePdfLatexCommand "latexmk" texMiniDefault;
           
-          # Bibliography-enabled LaTeX commands
+          # Basic LaTeX commands (lightweight, no bibliography)
+          pdflatex-basic = makePdfLatexCommand "pdflatex-basic" texMiniBasic;
+          lualatex-basic = makeLuaLatexCommand "lualatex-basic" texMiniBasic;
+          xelatex-basic = makeXeLatexCommand "xelatex-basic" texMiniBasic;
+          latexmk-basic = makePdfLatexCommand "latexmk-basic" texMiniBasic;
+          
+          # Explicit bibliography-enabled LaTeX commands (same as default now)
           pdflatex-biblio = makePdfLatexCommand "pdflatex-biblio" texMiniBiblio;
           lualatex-biblio = makeLuaLatexCommand "lualatex-biblio" texMiniBiblio;
           xelatex-biblio = makeXeLatexCommand "xelatex-biblio" texMiniBiblio;
@@ -203,13 +246,16 @@
           texMiniBasic = texMiniBasic;
           texMiniBiblio = texMiniBiblio;
 
-          # Default (basic)
-          default = makePdfLatexCommand "texmini" texMiniBasic;
+          # Default (now bibliography-enabled)
+          default = makePdfLatexCommand "texmini" texMiniDefault;
         };
 
         # For nix shell usage
         devShells = {
           default = pkgs.mkShell {
+            buildInputs = [ texMiniDefault ];
+          };
+          basic = pkgs.mkShell {
             buildInputs = [ texMiniBasic ];
           };
           biblio = pkgs.mkShell {

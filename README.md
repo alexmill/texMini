@@ -1,38 +1,47 @@
-# texMini: Ultra-lean LaTeX with Auto-Detection & Smart Cleanup
+# texMini: Ultra-lean LaTeX with Bibliography Support by Default
 
-A minimal TeX Live distribution (~41MB) with intelligent file auto-detection and robust cleanup.
+A minimal TeX Live distribution (~41MB) with intelligent file auto-detection, automatic bibliography support, and smart cleanup.
 
 ## Quick Start
 
 ```bash
-# Auto-detect .tex file in current directory
+# Auto-detect and compile with bibliography support included
+nix run github:alexmill/texMini
+
+# Specify files explicitly (recommended for scripts and automation)
+nix run github:alexmill/texMini -- document.tex bibliography.bib
+
+# Just specify .tex file (auto-detects .bib if present and unambiguous)
+nix run github:alexmill/texMini -- document.tex
+```
+
+## Full Details
+```bash
+# Auto-detect .tex file in current directory (bibliography support included)
 nix run github:alexmill/texMini#pdflatex
 
-# Or specify explicitly
+# Or specify explicitly  
 nix run github:alexmill/texMini#pdflatex -- document.tex
 
-# LaTeX with bibliography support (auto-detects .bib files too)
-nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
-
-# Different engines - basic LaTeX
+# Different engines - with bibliography support by default
 nix run github:alexmill/texMini#lualatex -- document.tex
 nix run github:alexmill/texMini#xelatex -- document.tex
 
-# Different engines - with bibliography
-nix run github:alexmill/texMini#lualatex-biblio -- paper.tex  
-nix run github:alexmill/texMini#xelatex-biblio -- paper.tex
+# Lightweight versions without bibliography packages
+nix run github:alexmill/texMini#pdflatex-basic -- document.tex
+nix run github:alexmill/texMini#lualatex-basic -- document.tex  
+nix run github:alexmill/texMini#xelatex-basic -- document.tex
 
-# Use latexmk with any engine (most common)
+# Use latexmk (most common, bibliography support included)
 nix run github:alexmill/texMini#latexmk -- -pdf document.tex
-nix run github:alexmill/texMini#latexmk-biblio -- -pdf paper.tex
 
 # Keep auxiliary files for debugging
 nix run github:alexmill/texMini#pdflatex -- document.tex --no-clean
 
 # For local development, use nix shell
+nix shell github:alexmill/texMini          # bibliography support included
+# or for lightweight shell:
 nix shell github:alexmill/texMini#texMiniBasic
-# or
-nix shell github:alexmill/texMini#texMiniBiblio
 ```
 
 ## Smart Features
@@ -51,10 +60,10 @@ nix shell github:alexmill/texMini#texMiniBiblio
 
 texMini provides exactly two levels to cover 99% of LaTeX use cases:
 
-1. **Basic** (`texMiniBasic`): Core LaTeX with math, graphics, hyperlinks, and TikZ
-2. **Bibliography** (`texMiniBiblio`): Everything in Basic + biblatex, biber, and csquotes
+1. **Default** (`texMiniDefault`): Core LaTeX with math, graphics, hyperlinks, TikZ, **and bibliography support** (biblatex, biber, csquotes)
+2. **Basic** (`texMiniBasic`): Lightweight core LaTeX with math, graphics, hyperlinks, and TikZ only
 
-No complex package management needed - just choose basic or bibliography support.
+The default now includes bibliography support because most academic and professional documents need citations. Use the `-basic` variants only when you specifically need a lighter distribution.
 
 ### VS Code LaTeX Workshop Integration
 
@@ -64,7 +73,7 @@ For VS Code integration, choose the appropriate level and configure LaTeX Worksh
 {
   "latex-workshop.latex.tools": [
     {
-      "name": "texmini-basic",
+      "name": "texmini",
       "command": "nix",
       "args": [
         "run",
@@ -77,11 +86,11 @@ For VS Code integration, choose the appropriate level and configure LaTeX Worksh
       ]
     },
     {
-      "name": "texmini-biblio",
+      "name": "texmini-basic",
       "command": "nix",
       "args": [
         "run",
-        "github:alexmill/texMini#latexmk-biblio",
+        "github:alexmill/texMini#latexmk-basic",
         "--",
         "-pdf", 
         "-interaction=nonstopmode",
@@ -92,12 +101,12 @@ For VS Code integration, choose the appropriate level and configure LaTeX Worksh
   ],
   "latex-workshop.latex.recipes": [
     {
-      "name": "texMini Basic",
-      "tools": ["texmini-basic"]
+      "name": "texMini (with Bibliography)",
+      "tools": ["texmini"]
     },
     {
-      "name": "texMini + Bibliography", 
-      "tools": ["texmini-biblio"]
+      "name": "texMini Basic (Lightweight)", 
+      "tools": ["texmini-basic"]
     }
   ]
 }
@@ -109,12 +118,12 @@ For VS Code integration, choose the appropriate level and configure LaTeX Worksh
 ```bash
 # If directory contains only "thesis.tex":
 nix run github:alexmill/texMini#pdflatex
-# → Auto-detects and compiles thesis.tex
+# → Auto-detects and compiles thesis.tex (with bibliography support)
 
 # If directory contains "paper.tex" and "refs.bib":
-nix run github:alexmill/texMini#pdflatex-biblio  
-# → Auto-detects paper.tex, detects bibliography usage, 
-#   warns if refs.bib isn't referenced in the document
+nix run github:alexmill/texMini#pdflatex
+# → Auto-detects paper.tex, detects bibliography usage,
+#   automatically processes refs.bib if referenced in the document
 ```
 
 ### Multiple File Scenarios
@@ -130,11 +139,43 @@ nix run github:alexmill/texMini#pdflatex -- main.tex
 ### Bibliography Auto-Detection
 ```bash
 # Document with \usepackage{biblatex} or \bibliography{} commands:
-nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
-# → Automatically detects bibliography usage
+nix run github:alexmill/texMini#pdflatex -- paper.tex
+# → Automatically detects and processes bibliography
 # → If single .bib file found, checks if it's referenced
 # → Warns about missing references or multiple .bib files
 ```
+
+### Command-Line File Specification
+
+texMini supports both explicit file specification and smart auto-detection:
+
+#### Explicit File Specification (Recommended)
+```bash
+# Specify .tex file and single .bib file
+nix run github:alexmill/texMini -- paper.tex refs.bib
+
+# Multiple bibliography files
+nix run github:alexmill/texMini -- thesis.tex refs.bib methods.bib
+
+# Only .tex file (auto-detects .bib if unambiguous)  
+nix run github:alexmill/texMini -- paper.tex
+
+# Mix with latexmk options
+nix run github:alexmill/texMini -- paper.tex refs.bib -pvc    # continuous preview
+nix run github:alexmill/texMini -- paper.tex --no-clean      # keep aux files
+```
+
+#### Auto-Detection (Convenience)
+```bash
+# Full auto-detection (works when single .tex file present)
+nix run github:alexmill/texMini
+```
+
+#### Error Handling
+The system provides helpful feedback:
+- **Missing .bib files**: Error if explicitly specified file doesn't exist
+- **Unreferenced .bib files**: Warning if .bib file isn't cited in the document
+- **Multiple candidates**: Clear guidance when auto-detection is ambiguous
 
 ## Usage Patterns
 
@@ -151,13 +192,14 @@ nix run github:alexmill/texMini#latexmk -- -pdf document.tex
 ### Development Shell
 Use `nix shell` for interactive development where you'll run multiple commands:
 ```bash
-nix shell github:alexmill/texMini#texMiniBasic
+# Default shell with bibliography support
+nix shell github:alexmill/texMini
 # Now you have latexmk available in your PATH
 latexmk -pdf document.tex
 
-# For bibliography support
-nix shell github:alexmill/texMini#texMiniBiblio
-latexmk -pdf paper.tex
+# For lightweight shell without bibliography
+nix shell github:alexmill/texMini#texMiniBasic
+latexmk -pdf simple-document.tex
 ```
 
 ## Cleanup Behavior
@@ -191,8 +233,9 @@ nix run github:alexmill/texMini#latexmk -- -pdf -pvc document.tex
 ## Features
 
 - **🚀 Ultra-lean**: ~41MB base installation with essential packages
-- **🎯 Auto-detection**: Automatically finds single `.tex` and `.bib` files
-- **🧠 Smart warnings**: Clear error messages for ambiguous or missing files  
+- **🎯 Auto-detection**: Automatically finds single `.tex` and `.bib` files when not specified
+- **📝 Explicit specification**: Support for multiple `.tex` and `.bib` files via command line
+- **🧠 Smart warnings**: Clear error messages for ambiguous, missing, or unreferenced files  
 - **🧹 Intelligent cleanup**: Keeps only `.tex`, `.bib`, and `.pdf` files after successful builds
 - **📁 Filename-agnostic**: Works with any document name and cleans corresponding auxiliary files
 - **⚡ Fast**: Pre-built variants for common use cases (basic, bibliography)
@@ -370,6 +413,28 @@ nix run github:alexmill/texMini#pdflatex -- main.tex
 # Warning: Bibliography commands found but no .bib files found
 # Solution: Create a .bib file or use basic variant instead
 nix run github:alexmill/texMini#pdflatex -- document.tex  # if no bibliography needed
+```
+
+**Q: Bibliography file not found**
+```bash
+# Error: Specified .bib file does not exist: missing.bib
+# Solution: Check the filename and path
+ls *.bib  # List available .bib files
+nix run github:alexmill/texMini -- paper.tex refs.bib  # Use correct filename
+```
+
+**Q: Warning about unreferenced bibliography**
+```bash
+# Warning: refs.bib is not referenced in document.tex
+# This means your .tex file doesn't cite anything from refs.bib
+# Solution: Either remove the .bib file or add citations like \cite{key}
+```
+
+**Q: Multiple bibliography files not working**
+```bash
+# Make sure all .bib files exist and are referenced:
+nix run github:alexmill/texMini -- thesis.tex refs.bib methods.bib
+# Each .bib file should contain citations used in your document
 ```
 
 **Q: Want to keep auxiliary files for debugging**
