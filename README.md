@@ -1,14 +1,17 @@
-# texMini: Ultra-lean LaTeX with Smart Package Loading
+# texMini: Ultra-lean LaTeX with Auto-Detection & Smart Cleanup
 
-A minimal TeX Live distribution (~41MB) with intelligent on-demand package loading.
+A minimal TeX Live distribution (~41MB) with intelligent file auto-detection and robust cleanup.
 
 ## Quick Start
 
 ```bash
-# Basic LaTeX compilation (no bibliography support)
+# Auto-detect .tex file in current directory
+nix run github:alexmill/texMini#pdflatex
+
+# Or specify explicitly
 nix run github:alexmill/texMini#pdflatex -- document.tex
 
-# LaTeX with bibliography support (includes biblatex, biber, csquotes)
+# LaTeX with bibliography support (auto-detects .bib files too)
 nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
 
 # Different engines - basic LaTeX
@@ -31,6 +34,18 @@ nix shell github:alexmill/texMini#texMiniBasic
 # or
 nix shell github:alexmill/texMini#texMiniBiblio
 ```
+
+## Smart Features
+
+### 🎯 Auto-Detection
+- **Single .tex file**: Automatically detected and compiled if no file specified
+- **Bibliography files**: Auto-detects `.bib` files and checks for proper references
+- **Smart warnings**: Alerts for missing or ambiguous files with helpful suggestions
+
+### 🧹 Intelligent Cleanup  
+- **Default behavior**: Keeps only `.tex`, `.bib`, and `.pdf` files after successful builds
+- **Failure preservation**: Auxiliary files retained on build errors for debugging
+- **Flexible control**: Use `--no-clean` flag or continuous mode (`-pvc`) to disable cleanup
 
 ### Two Simple Levels
 
@@ -88,125 +103,175 @@ For VS Code integration, choose the appropriate level and configure LaTeX Worksh
 }
 ```
 
+## Auto-Detection Examples
+
+### Single File Projects
+```bash
+# If directory contains only "thesis.tex":
+nix run github:alexmill/texMini#pdflatex
+# → Auto-detects and compiles thesis.tex
+
+# If directory contains "paper.tex" and "refs.bib":
+nix run github:alexmill/texMini#pdflatex-biblio  
+# → Auto-detects paper.tex, detects bibliography usage, 
+#   warns if refs.bib isn't referenced in the document
+```
+
+### Multiple File Scenarios
+```bash
+# Directory with "intro.tex", "main.tex", "conclusion.tex":
+nix run github:alexmill/texMini#pdflatex
+# → Error: Multiple .tex files found, please specify which to compile
+
+nix run github:alexmill/texMini#pdflatex -- main.tex
+# → Compiles main.tex explicitly
+```
+
+### Bibliography Auto-Detection
+```bash
+# Document with \usepackage{biblatex} or \bibliography{} commands:
+nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
+# → Automatically detects bibliography usage
+# → If single .bib file found, checks if it's referenced
+# → Warns about missing references or multiple .bib files
+```
+
 ## Usage Patterns
 
 ### One-off Compilation
 Use `nix run` for quick compilation without entering a shell:
 ```bash
-nix run github:alexmill/texMini#texMini -- -pdf document.tex
+# Auto-detect single .tex file in current directory
+nix run github:alexmill/texMini#latexmk
+
+# Or specify explicitly
+nix run github:alexmill/texMini#latexmk -- -pdf document.tex
 ```
 
 ### Development Shell
 Use `nix shell` for interactive development where you'll run multiple commands:
 ```bash
-nix shell github:alexmill/texMini#texMini
-# Now you have latexmk and texMini wrapper available in your PATH
+nix shell github:alexmill/texMini#texMiniBasic
+# Now you have latexmk available in your PATH
 latexmk -pdf document.tex
-texmini -pdf document.tex --extra tikz-cd
+
+# For bibliography support
+nix shell github:alexmill/texMini#texMiniBiblio
+latexmk -pdf paper.tex
 ```
 
-### Environment Integration
-Use the environment-variable variant for tool integration (VS Code, editors, CI/CD):
+## Cleanup Behavior
+
+texMini features intelligent cleanup that adapts to your workflow:
+
+### Default Cleanup (Recommended)
+After successful compilation, only essential files remain:
+- **✅ Kept**: `.tex` (source), `.bib` (bibliography), `.pdf` (output)  
+- **🗑️ Removed**: `.aux`, `.log`, `.bbl`, `.bcf`, `.blg`, `.fls`, `.fdb_latexmk`, `.nav`, `.out`, `.snm`, `.toc`, `.vrb`, `.run.xml`
+
 ```bash
-TEXMINI_EXTRA_PACKAGES="biblatex biber" nix shell github:alexmill/texMini#texMiniEnv -c latexmk -pdf paper.tex
+# These all clean up automatically after successful builds:
+nix run github:alexmill/texMini#pdflatex -- thesis.tex
+nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
 ```
 
-### VS Code LaTeX Workshop Configuration
+### When Cleanup is Disabled
+- **Build failures**: Auxiliary files preserved for debugging
+- **Continuous mode**: `latexmk -pvc` automatically disables cleanup
+- **Manual override**: `--no-clean` flag or `TEXMINI_AUTO_CLEAN=false`
 
-For VS Code with LaTeX Workshop extension, use this configuration in your `settings.json`:
+```bash
+# Keep all files for debugging
+nix run github:alexmill/texMini#pdflatex -- document.tex --no-clean
 
-```json
-{
-  "latex-workshop.latex.tools": [
-    {
-      "name": "texmini-latexmk",
-      "command": "nix",
-      "args": [
-        "shell",
-        "github:alexmill/texMini#texMiniEnv",
-        "-c",
-        "latexmk",
-        "-pdf",
-        "-interaction=nonstopmode",
-        "-file-line-error",
-        "%DOC%"
-      ],
-      "env": {
-        "TEXMINI_EXTRA_PACKAGES": "microtype fontspec"
-      }
-    },
-    {
-      "name": "texmini-biblio",
-      "command": "nix",
-      "args": [
-        "shell",
-        "github:alexmill/texMini#texMiniBiblio",
-        "-c",
-        "latexmk",
-        "-pdf",
-        "-interaction=nonstopmode",
-        "-file-line-error",
-        "%DOC%"
-      ],
-      "env": {}
-    }
-  ],
-  "latex-workshop.latex.recipes": [
-    {
-      "name": "texMini",
-      "tools": ["texmini-latexmk"]
-    },
-    {
-      "name": "texMini + Bibliography",
-      "tools": ["texmini-biblio"]
-    }
-  ]
-}
+# Continuous preview mode (cleanup auto-disabled)
+nix run github:alexmill/texMini#latexmk -- -pdf -pvc document.tex
 ```
 
 ## Features
 
 - **🚀 Ultra-lean**: ~41MB base installation with essential packages
-- **🧠 Smart loading**: Add packages dynamically with `--extra package1 package2`
-- **🧹 Auto-cleanup**: Removes auxiliary files after successful builds (disable with `--no-clean` or `TEXMINI_AUTO_CLEAN=false`)
+- **🎯 Auto-detection**: Automatically finds single `.tex` and `.bib` files
+- **🧠 Smart warnings**: Clear error messages for ambiguous or missing files  
+- **🧹 Intelligent cleanup**: Keeps only `.tex`, `.bib`, and `.pdf` files after successful builds
 - **📁 Filename-agnostic**: Works with any document name and cleans corresponding auxiliary files
-- **⚡ Fast**: Pre-built variants for common use cases (biblio, typography, graphics)
+- **⚡ Fast**: Pre-built variants for common use cases (basic, bibliography)
 - **🔄 Compatible**: Works with all latexmk options and compilation modes (pdflatex, lualatex, xelatex)
 - **📦 Reproducible**: Pinned nixpkgs for consistent builds across machines
-- **🎛️ Tool-friendly**: Environment variable interface for VS Code and other editors
+- **🛑 Debug-friendly**: Preserves auxiliary files on build failures or when explicitly requested
 - **🌐 Zero-install**: Run directly from GitHub without local installation
 
-## Automatic Cleanup
+## Smart Cleanup Details
 
-texMini automatically cleans auxiliary files (`.aux`, `.log`, `.fls`, `.fdb_latexmk`) after successful compilation to keep your workspace tidy. This works with any filename:
+texMini's cleanup system is designed to be helpful without getting in your way:
 
-- **✅ Successful build**: Auxiliary files are cleaned automatically
-- **❌ Failed build**: Auxiliary files are preserved for debugging
-- **🔄 Continuous mode (`-pvc`)**: Cleanup is disabled automatically
-- **🛑 Manual override**: Use `--no-clean` flag or `TEXMINI_AUTO_CLEAN=false`
+### What Gets Cleaned
+After **successful** compilation, these auxiliary files are automatically removed:
+- `.aux` (cross-references)
+- `.log` (compilation log) 
+- `.bbl` (bibliography)
+- `.bcf` (biblatex control)
+- `.blg` (bibliography log)
+- `.fls` (file list)
+- `.fdb_latexmk` (latexmk database)
+- `.nav`, `.out`, `.snm`, `.toc`, `.vrb` (beamer/navigation)
+- `.run.xml` (biblatex metadata)
 
+### What's Always Kept
+- `.tex` (your source files)
+- `.bib` (bibliography databases)
+- `.pdf` (compiled output)
+- Any files not recognized as auxiliary
+
+### Cleanup Examples
 ```bash
-# These all work the same regardless of filename:
-nix run github:alexmill/texMini#texMini -- -pdf my-thesis.tex           # Cleans my-thesis.aux, etc.
-nix run github:alexmill/texMini#texMini -- -pdf report_final_v3.tex     # Cleans report_final_v3.aux, etc.  
-nix run github:alexmill/texMini#texMini -- -pdf document.tex --no-clean # Keeps all auxiliary files
+# Before compilation: thesis.tex, refs.bib
+nix run github:alexmill/texMini#pdflatex-biblio -- thesis.tex
+# After: thesis.tex, refs.bib, thesis.pdf (all .aux, .log, etc. removed)
+
+# With multiple documents:
+nix run github:alexmill/texMini#pdflatex -- chapter1.tex  
+# Cleans chapter1.aux, chapter1.log, etc. (leaves other files untouched)
+
+# Debug mode:
+nix run github:alexmill/texMini#pdflatex -- thesis.tex --no-clean
+# All auxiliary files preserved for inspection
 ```
 
-## Pre-configured Variants
+## Available Commands
 
-Skip the `--extra` flag for common document types:
+texMini provides focused command variants for different needs:
 
+### Basic LaTeX (no bibliography)
 ```bash
-# Bibliography documents (includes biblatex, biber, csquotes)
-nix shell github:alexmill/texMini#texMiniBiblio -c latexmk -pdf paper.tex
+# PDF output with pdflatex (most common)
+nix run github:alexmill/texMini#pdflatex -- document.tex
 
-# Typography-focused (includes microtype, fontspec, unicode-math)
-nix shell github:alexmill/texMini#texMiniTypo -c latexmk -pdf article.tex
+# Alternative engines
+nix run github:alexmill/texMini#lualatex -- document.tex  # Unicode & modern fonts
+nix run github:alexmill/texMini#xelatex -- document.tex   # System fonts
 
-# Graphics/TikZ documents (includes tikz-cd, pgfplots, circuitikz)
-nix shell github:alexmill/texMini#texMiniGraphics -c latexmk -pdf diagrams.tex
+# Full latexmk control (recommended for complex builds)
+nix run github:alexmill/texMini#latexmk -- -pdf -pvc document.tex
 ```
 
+### Bibliography Support
+```bash
+# Includes biblatex, biber, and csquotes
+nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
+nix run github:alexmill/texMini#lualatex-biblio -- paper.tex  
+nix run github:alexmill/texMini#xelatex-biblio -- paper.tex
+nix run github:alexmill/texMini#latexmk-biblio -- -pdf paper.tex
+```
+
+### Development Shells
+```bash
+# Enter a shell with basic LaTeX tools
+nix shell github:alexmill/texMini#texMiniBasic
+
+# Enter a shell with bibliography support  
+nix shell github:alexmill/texMini#texMiniBiblio
+```
 ## Advanced Usage
 
 ### Using in Your Own Flake
@@ -221,18 +286,13 @@ nix shell github:alexmill/texMini#texMiniGraphics -c latexmk -pdf diagrams.tex
   outputs = { self, nixpkgs, texMini }:
     nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-darwin" "x86_64-darwin" ] (system:
       let
-        pkgs = import nixpkgs { 
-          inherit system; 
-          overlays = [ texMini.overlays.default ];
-        };
-        
-        # Use texMini with custom packages
-        myTexLive = pkgs.texMiniWith {
-          extra = [ "beamer" "tikz-cd" "biblatex" "biber" ];
-        };
+        pkgs = import nixpkgs { inherit system; };
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = [ myTexLive ];
+          buildInputs = [ 
+            texMini.packages.${system}.texMiniBasic
+            # or texMini.packages.${system}.texMiniBiblio
+          ];
         };
       });
 }
@@ -250,20 +310,19 @@ nix shell github:alexmill/texMini#texMiniGraphics -c latexmk -pdf diagrams.tex
 
 ### Pre-configured Additions
 - **texMiniBiblio**: `biblatex`, `biber`, `csquotes`
-- **texMiniTypo**: `microtype`, `fontspec`, `unicode-math`  
-- **texMiniGraphics**: `tikz-cd`, `pgfplots`, `circuitikz`
 
-## Common Package Names
+## Common Use Cases
 
-When using `--extra`, here are some frequently needed packages:
+Here are some common packages you might need beyond the base installation:
 
-- **Bibliography**: `biblatex`, `biber`, `csquotes`, `natbib`
+- **Document classes**: `beamer`, `memoir`, `koma-script`, `moderncv`
+- **Advanced math**: `mathtools`, `amsthm`, `thmtools`, `physics`
+- **Tables**: `booktabs`, `longtable`, `array`, `tabularx`
+- **Code listings**: `listings`, `minted`, `fvextra`
 - **Advanced graphics**: `tikz-cd`, `pgfplots`, `circuitikz`, `forest`
 - **Typography**: `microtype`, `fontspec`, `unicode-math`, `polyglossia`
-- **Document classes**: `beamer`, `memoir`, `koma-script`, `moderncv`
-- **Math**: `mathtools`, `amsthm`, `thmtools`, `physics`
-- **Tables**: `booktabs`, `longtable`, `array`, `tabularx`
-- **Code**: `listings`, `minted`, `fvextra`
+
+To use packages beyond the base set, you can create your own flake that extends texMini with additional packages.
 
 ## Package Discovery
 
@@ -292,31 +351,53 @@ How does texMini compare to other LaTeX distributions?
 
 ### Common Issues
 
-**Q: Package not found error**
+**Q: No .tex file found**
 ```bash
-# If you get "Package X not found", add it with --extra:
-nix run github:alexmill/texMini#texMini -- -pdf document.tex --extra X
+# Error: No .tex files found in current directory
+# Solution: Create a .tex file or specify the path
+nix run github:alexmill/texMini#pdflatex -- /path/to/document.tex
+```
+
+**Q: Multiple .tex files found**
+```bash
+# Error: Multiple .tex files found: main.tex intro.tex conclusion.tex
+# Solution: Specify which file to compile
+nix run github:alexmill/texMini#pdflatex -- main.tex
+```
+
+**Q: Bibliography not working**
+```bash
+# Warning: Bibliography commands found but no .bib files found
+# Solution: Create a .bib file or use basic variant instead
+nix run github:alexmill/texMini#pdflatex -- document.tex  # if no bibliography needed
 ```
 
 **Q: Want to keep auxiliary files for debugging**
 ```bash
 # Use --no-clean flag:
-nix run github:alexmill/texMini#texMini -- -pdf document.tex --no-clean
+nix run github:alexmill/texMini#pdflatex -- document.tex --no-clean
 ```
 
 **Q: VS Code integration not working**
-- Ensure you're using the `texMiniEnv` variant in your settings
-- Check that environment variables are set correctly
-- Verify the LaTeX Workshop extension is installed
+- Ensure you're using the correct command variants in your LaTeX Workshop settings
+- Check that the file paths in your VS Code config are correct
+- Verify the LaTeX Workshop extension is installed and enabled
 
 **Q: Slow first run**
-- texMini downloads ~41MB on first use - subsequent runs are cached
+- texMini downloads ~41MB on first use - subsequent runs are cached by Nix
 - Use `nix shell` for development sessions to avoid repeated downloads
+
+**Q: Missing packages**
+- texMini focuses on core functionality to stay minimal
+- For additional packages, create your own flake that extends texMini
+- Most documents work with the provided basic or bibliography variants
 
 ## Why texMini?
 
 - **Size**: Standard TeX Live is 5+ GB, texMini is just ~41MB
 - **Speed**: Faster downloads and builds
-- **Flexibility**: Add exactly what you need, when you need it  
+- **Intelligence**: Auto-detects files and provides helpful error messages
+- **Cleanliness**: Smart cleanup keeps your workspace organized  
+- **Simplicity**: Two focused variants cover most use cases
 - **Reproducible**: Pinned dependencies, consistent across machines
-- **Smart**: The `--extra` flag makes package management effortless
+- **Zero-install**: Run directly from GitHub with `nix run`
