@@ -37,6 +37,7 @@
           "collection-latexrecommended"
           "cm-super"           # Complete Computer Modern font collection
           "lm"                 # Latin Modern fonts
+          "bayesnet"
         ];
 
         # --- LaTeX + Bibliography ---
