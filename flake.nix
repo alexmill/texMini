@@ -2,7 +2,7 @@
   description = "Ultra-lean TeX Live (~41MB) with smart package loading and bibliography support by default";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/release-25.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -37,7 +37,7 @@
           "collection-latexrecommended"
           "cm-super"           # Complete Computer Modern font collection
           "lm"                 # Latin Modern fonts
-          "bayesnet"
+          "tikz-bayesnet"
         ];
 
         # --- LaTeX + Bibliography ---
