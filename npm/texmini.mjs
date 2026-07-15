@@ -337,9 +337,9 @@ export function runCommand(args, { env = process.env, capture = false, quietStde
   };
 }
 
-export async function latestTinytexAsset(env = process.env, fetchImpl = fetch) {
+export async function latestTinytexAsset(env = process.env, fetchImpl = fetch, platformKey = tinytexPlatformKey()) {
   const bundle = tinytexBundle(env);
-  const prefix = `${bundle}-${tinytexPlatformKey()}-`;
+  const prefix = `${bundle}-${platformKey}-`;
   const headers = { "user-agent": "texmini" };
   if (env.GITHUB_TOKEN) headers.authorization = `Bearer ${env.GITHUB_TOKEN}`;
   const response = await fetchImpl(TINYTEX_RELEASE_API, {
