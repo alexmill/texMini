@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.zig-cache/
+zig-out/
+dist/
+build/
+*.egg-info/
+result
+result-*
+benchmarks/results/*.log
+benchmarks/work/
+node_modules/
+npm-debug.log*
+*.tgz

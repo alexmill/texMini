@@ -1,0 +1,538 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "20260715T020417Z",
+  "texmini_version": "0.1.0",
+  "host": {
+    "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "python": "3.14.6"
+  },
+  "fixtures": [
+    "simple",
+    "common",
+    "random-packages",
+    "bibliography"
+  ],
+  "warm_repeats": 3,
+  "bundles": [
+    {
+      "bundle": "TinyTeX-0",
+      "asset": "TinyTeX-0-darwin-v2026.07.tar.xz",
+      "archive_bytes": 979100,
+      "final_runtime_logical_bytes": 254565080,
+      "final_runtime_allocated_bytes": 266862592,
+      "cases": [
+        {
+          "fixture": "simple",
+          "cold": {
+            "elapsed_seconds": 40.401,
+            "returncode": 0,
+            "install_payload_bytes": 28348416,
+            "log": "simple-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 0.344,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.339,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.328,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 0.339,
+          "runtime_logical_bytes_before": 0,
+          "runtime_logical_bytes_after": 159166177,
+          "runtime_logical_growth_bytes": 159166177,
+          "runtime_allocated_bytes_before": 0,
+          "runtime_allocated_bytes_after": 169259008,
+          "runtime_allocated_growth_bytes": 169259008,
+          "pdf_bytes": 64688
+        },
+        {
+          "fixture": "common",
+          "cold": {
+            "elapsed_seconds": 18.918,
+            "returncode": 0,
+            "install_payload_bytes": 1189888,
+            "log": "common-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 1.137,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 1.122,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 1.204,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 1.137,
+          "runtime_logical_bytes_before": 159166177,
+          "runtime_logical_bytes_after": 167511846,
+          "runtime_logical_growth_bytes": 8345669,
+          "runtime_allocated_bytes_before": 169259008,
+          "runtime_allocated_bytes_after": 179355648,
+          "runtime_allocated_growth_bytes": 10096640,
+          "pdf_bytes": 60971
+        },
+        {
+          "fixture": "random-packages",
+          "cold": {
+            "elapsed_seconds": 18.827,
+            "returncode": 0,
+            "install_payload_bytes": 128000,
+            "log": "random-packages-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 0.312,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.309,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.306,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 0.309,
+          "runtime_logical_bytes_before": 167511846,
+          "runtime_logical_bytes_after": 168727996,
+          "runtime_logical_growth_bytes": 1216150,
+          "runtime_allocated_bytes_before": 179355648,
+          "runtime_allocated_bytes_after": 180682752,
+          "runtime_allocated_growth_bytes": 1327104,
+          "pdf_bytes": 16209
+        },
+        {
+          "fixture": "bibliography",
+          "cold": {
+            "elapsed_seconds": 19.824,
+            "returncode": 0,
+            "install_payload_bytes": 70043648,
+            "log": "bibliography-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 3.297,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 3.271,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 3.262,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 3.271,
+          "runtime_logical_bytes_before": 168727996,
+          "runtime_logical_bytes_after": 254565080,
+          "runtime_logical_growth_bytes": 85837084,
+          "runtime_allocated_bytes_before": 180682752,
+          "runtime_allocated_bytes_after": 266862592,
+          "runtime_allocated_growth_bytes": 86179840,
+          "pdf_bytes": 40518
+        }
+      ]
+    },
+    {
+      "bundle": "TinyTeX-1",
+      "asset": "TinyTeX-1-darwin-v2026.07.tar.xz",
+      "archive_bytes": 66391980,
+      "final_runtime_logical_bytes": 338786081,
+      "final_runtime_allocated_bytes": 357036032,
+      "cases": [
+        {
+          "fixture": "simple",
+          "cold": {
+            "elapsed_seconds": 9.86,
+            "returncode": 0,
+            "install_payload_bytes": 0,
+            "log": "simple-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 0.336,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.334,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.33,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 0.334,
+          "runtime_logical_bytes_before": 0,
+          "runtime_logical_bytes_after": 245517303,
+          "runtime_logical_growth_bytes": 245517303,
+          "runtime_allocated_bytes_before": 0,
+          "runtime_allocated_bytes_after": 261566464,
+          "runtime_allocated_growth_bytes": 261566464,
+          "pdf_bytes": 64688
+        },
+        {
+          "fixture": "common",
+          "cold": {
+            "elapsed_seconds": 14.437,
+            "returncode": 0,
+            "install_payload_bytes": 904192,
+            "log": "common-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 1.123,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 1.133,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 1.124,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 1.124,
+          "runtime_logical_bytes_before": 245517303,
+          "runtime_logical_bytes_after": 252057651,
+          "runtime_logical_growth_bytes": 6540348,
+          "runtime_allocated_bytes_before": 261566464,
+          "runtime_allocated_bytes_after": 269893632,
+          "runtime_allocated_growth_bytes": 8327168,
+          "pdf_bytes": 60971
+        },
+        {
+          "fixture": "random-packages",
+          "cold": {
+            "elapsed_seconds": 18.69,
+            "returncode": 0,
+            "install_payload_bytes": 110592,
+            "log": "random-packages-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 0.314,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.31,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.321,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 0.314,
+          "runtime_logical_bytes_before": 252057651,
+          "runtime_logical_bytes_after": 253192933,
+          "runtime_logical_growth_bytes": 1135282,
+          "runtime_allocated_bytes_before": 269893632,
+          "runtime_allocated_bytes_after": 271122432,
+          "runtime_allocated_growth_bytes": 1228800,
+          "pdf_bytes": 16209
+        },
+        {
+          "fixture": "bibliography",
+          "cold": {
+            "elapsed_seconds": 11.666,
+            "returncode": 0,
+            "install_payload_bytes": 70023168,
+            "log": "bibliography-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 3.289,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 3.247,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 3.269,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 3.269,
+          "runtime_logical_bytes_before": 253192933,
+          "runtime_logical_bytes_after": 338786081,
+          "runtime_logical_growth_bytes": 85593148,
+          "runtime_allocated_bytes_before": 271122432,
+          "runtime_allocated_bytes_after": 357036032,
+          "runtime_allocated_growth_bytes": 85913600,
+          "pdf_bytes": 40518
+        }
+      ]
+    },
+    {
+      "bundle": "TinyTeX",
+      "asset": "TinyTeX-darwin-v2026.07.tar.xz",
+      "archive_bytes": 208368556,
+      "final_runtime_logical_bytes": 535075922,
+      "final_runtime_allocated_bytes": 582152192,
+      "cases": [
+        {
+          "fixture": "simple",
+          "cold": {
+            "elapsed_seconds": 17.005,
+            "returncode": 0,
+            "install_payload_bytes": 0,
+            "log": "simple-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 0.351,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.347,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.353,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "simple-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 0.351,
+          "runtime_logical_bytes_before": 0,
+          "runtime_logical_bytes_after": 535075922,
+          "runtime_logical_growth_bytes": 535075922,
+          "runtime_allocated_bytes_before": 0,
+          "runtime_allocated_bytes_after": 582152192,
+          "runtime_allocated_growth_bytes": 582152192,
+          "pdf_bytes": 64688
+        },
+        {
+          "fixture": "common",
+          "cold": {
+            "elapsed_seconds": 1.171,
+            "returncode": 0,
+            "install_payload_bytes": 0,
+            "log": "common-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 1.165,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 1.184,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 1.132,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "common-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 1.165,
+          "runtime_logical_bytes_before": 535075922,
+          "runtime_logical_bytes_after": 535075922,
+          "runtime_logical_growth_bytes": 0,
+          "runtime_allocated_bytes_before": 582152192,
+          "runtime_allocated_bytes_after": 582152192,
+          "runtime_allocated_growth_bytes": 0,
+          "pdf_bytes": 60971
+        },
+        {
+          "fixture": "random-packages",
+          "cold": {
+            "elapsed_seconds": 0.318,
+            "returncode": 0,
+            "install_payload_bytes": 0,
+            "log": "random-packages-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 0.314,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.313,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 0.313,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "random-packages-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 0.313,
+          "runtime_logical_bytes_before": 535075922,
+          "runtime_logical_bytes_after": 535075922,
+          "runtime_logical_growth_bytes": 0,
+          "runtime_allocated_bytes_before": 582152192,
+          "runtime_allocated_bytes_after": 582152192,
+          "runtime_allocated_growth_bytes": 0,
+          "pdf_bytes": 16209
+        },
+        {
+          "fixture": "bibliography",
+          "cold": {
+            "elapsed_seconds": 4.173,
+            "returncode": 0,
+            "install_payload_bytes": 0,
+            "log": "bibliography-cold.log",
+            "failure_tail": []
+          },
+          "warm_runs": [
+            {
+              "elapsed_seconds": 3.287,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-1.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 3.339,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-2.log",
+              "failure_tail": []
+            },
+            {
+              "elapsed_seconds": 3.341,
+              "returncode": 0,
+              "install_payload_bytes": 0,
+              "log": "bibliography-warm-3.log",
+              "failure_tail": []
+            }
+          ],
+          "warm_median_seconds": 3.339,
+          "runtime_logical_bytes_before": 535075922,
+          "runtime_logical_bytes_after": 535075922,
+          "runtime_logical_growth_bytes": 0,
+          "runtime_allocated_bytes_before": 582152192,
+          "runtime_allocated_bytes_after": 582152192,
+          "runtime_allocated_growth_bytes": 0,
+          "pdf_bytes": 40518
+        }
+      ]
+    }
+  ]
+}

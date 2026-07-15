@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "20260715T020500Z",
+  "host": {
+    "platform": "macOS 26.3.1",
+    "machine": "arm64",
+    "uv": "0.11.20",
+    "python": "3.14.6",
+    "zig": "0.16.0",
+    "homebrew": "6.0.11",
+    "docker_client": "29.4.0",
+    "docker_server": "29.4.0",
+    "docker_server_machine": "arm64",
+    "node": "26.3.0",
+    "npm": "11.16.0",
+    "nix_on_host": false,
+    "latexmk_on_host": false
+  },
+  "wrapper_installs": {
+    "npm": {
+      "source": "local npm pack artifact",
+      "tarball_bytes": 14465,
+      "elapsed_seconds": 0.79,
+      "allocated_kib": 3888,
+      "first_start_seconds": 0.34819,
+      "startup_median_seconds": 0.07709,
+      "startup_p95_seconds": 0.08953,
+      "warm_simple_median_seconds": 0.34894,
+      "requires_python_on_path": false,
+      "npm_dependencies": ["tar", "xz-decompress"]
+    },
+    "uv_local": {
+      "source": "local checkout",
+      "elapsed_seconds": 1.32,
+      "allocated_kib": 124,
+      "startup_median_seconds": 0.00794,
+      "warm_simple_median_seconds": 0.34658
+    },
+    "uv_tool": {
+      "source": "local checkout",
+      "elapsed_seconds": 1.16,
+      "allocated_kib": 216,
+      "startup_median_seconds": 0.00834,
+      "warm_simple_median_seconds": 0.34472
+    },
+    "zig": {
+      "source": "local checkout and empty prefix",
+      "elapsed_seconds": 6.38,
+      "allocated_kib": 96,
+      "startup_median_seconds": 0.00807,
+      "warm_simple_median_seconds": 0.34080,
+      "requires_python_on_path": true
+    },
+    "homebrew": {
+      "source": "temporary local tap",
+      "elapsed_seconds": 8.44,
+      "formula_allocated_kib": 136,
+      "python_dependency_allocated_kib": 86628,
+      "startup_median_seconds": 0.00888,
+      "warm_simple_median_seconds": 0.34139,
+      "note": "Homebrew upgraded existing formula dependencies during this run; transfer bytes were not measured."
+    }
+  },
+  "managed_first_pdf": {
+    "fixture": "test.tex with refs.bib",
+    "npm_tinytex_0": {
+      "archive_bytes": 979100,
+      "tlmgr_reported_payload_bytes": 99685376,
+      "cold_seconds": 70.98,
+      "warm_runs_seconds": [4.634480417, 4.3595112921, 4.4329812081],
+      "warm_median_seconds": 4.4329812081,
+      "runtime_allocated_kib": 263840,
+      "pdf_bytes": 119002,
+      "python_shadow_exit_code": 99
+    },
+    "tinytex_0": {
+      "archive_bytes": 979100,
+      "tlmgr_reported_payload_bytes": 99685376,
+      "cold_seconds": 71.19,
+      "warm_runs_seconds": [4.4618724169, 4.37529325, 4.424639459],
+      "warm_median_seconds": 4.424639459,
+      "runtime_allocated_kib": 263836,
+      "pdf_bytes": 119002
+    },
+    "tinytex_1": {
+      "archive_bytes": 66391980,
+      "tlmgr_reported_payload_bytes": 70761472,
+      "cold_seconds": 24.00,
+      "warm_runs_seconds": [4.644392875, 4.3512515, 4.353883584],
+      "warm_median_seconds": 4.353883584,
+      "runtime_allocated_kib": 346096,
+      "pdf_bytes": 119002
+    },
+    "network_note": "tlmgr payload sums package sizes reported in command output and excludes HTTP and repository-index overhead."
+  },
+  "managed_engines": {
+    "runtime": "hydrated TinyTeX-0 test.tex runtime",
+    "xelatex_first_seconds": 12.75,
+    "xelatex_runtime_growth_kib": 66132,
+    "lualatex_first_seconds": 6.45,
+    "lualatex_runtime_growth_kib": 1488
+  },
+  "docker": {
+    "default": {
+      "fresh_build_seconds": 73.80,
+      "nix_declared_download_mib": 113.6,
+      "nix_declared_unpacked_mib": 500.7,
+      "image_bytes": 497364643,
+      "fixture": "test.tex with refs.bib",
+      "execution_runs_seconds": [4.732205792, 4.187855292, 4.181823708, 4.050007541, 4.120159917],
+      "execution_median_seconds": 4.181823708,
+      "runtime_network": "disabled"
+    },
+    "pdflatex_basic": {
+      "fresh_build_seconds": 54.49,
+      "nix_declared_download_mib": 105.7,
+      "nix_declared_unpacked_mib": 432.9,
+      "image_bytes": 427130219,
+      "fixture": "simple.tex",
+      "execution_runs_seconds": [0.286529917, 0.251863292, 0.251733458, 0.309341625, 0.224126333],
+      "execution_median_seconds": 0.251863292,
+      "runtime_network": "disabled"
+    }
+  },
+  "not_measured": {
+    "nix_host_install": "Nix was not installed on the host; its closures were built from scratch through Docker.",
+    "system_latexmk": "No system latexmk was installed."
+  }
+}
