@@ -19,7 +19,7 @@
   "wrapper_installs": {
     "npm": {
       "source": "local npm pack artifact",
-      "tarball_bytes": 14465,
+      "tarball_bytes": 14584,
       "elapsed_seconds": 0.79,
       "allocated_kib": 3888,
       "first_start_seconds": 0.34819,

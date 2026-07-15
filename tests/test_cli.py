@@ -230,6 +230,9 @@ class CliTest(unittest.TestCase):
         internal.linkname = "../../texmf-dist/scripts/texlive/tlmgr.pl"
         cli.validate_tinytex_archive_member(internal)
 
+        linux_member = tarfile.TarInfo(".TinyTeX/bin/x86_64-linux/tlmgr")
+        cli.validate_tinytex_archive_member(linux_member)
+
         escape = tarfile.TarInfo("TinyTeX/bin/escape")
         escape.type = tarfile.SYMTYPE
         escape.linkname = "../../../outside"

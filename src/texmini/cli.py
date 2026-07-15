@@ -403,7 +403,10 @@ def validate_tinytex_archive_member(member: "tarfile.TarInfo") -> None:
     normalized_path = posixpath.normpath(path)
 
     def is_managed_path(candidate: str) -> bool:
-        return candidate == "TinyTeX" or candidate.startswith("TinyTeX/")
+        return any(
+            candidate == root_name or candidate.startswith(f"{root_name}/")
+            for root_name in ("TinyTeX", ".TinyTeX")
+        )
 
     if "\0" in path or posixpath.isabs(path) or not is_managed_path(normalized_path):
         raise TexMiniError(f"Error: Unsafe path in TinyTeX archive: {member.name}")
@@ -447,8 +450,11 @@ def install_tinytex_archive(root: "Path") -> None:
                 for member in tar:
                     validate_tinytex_archive_member(member)
                     tar.extract(member, extraction_root)
-        extracted_root = extraction_root / "TinyTeX"
-        if not extracted_root.exists():
+        extracted_root = next(
+            (candidate for root_name in ("TinyTeX", ".TinyTeX") if (candidate := extraction_root / root_name).exists()),
+            None,
+        )
+        if extracted_root is None:
             raise TexMiniError("Error: TinyTeX archive did not contain a TinyTeX runtime.")
         extracted_root.rename(root)
     if tinytex_bundle() == "TinyTeX-0":
