@@ -66,7 +66,7 @@ test("TinyTeX platform selection distinguishes glibc, musl, and ARM64", () => {
 
 test("release lookup authenticates when GitHub provides a token", async () => {
   let requestOptions;
-  const assetName = `TinyTeX-0-${tinytexPlatformKey()}-test.tar.xz`;
+  const assetName = "TinyTeX-0-darwin-test.tar.xz";
   const asset = await latestTinytexAsset(
     { GITHUB_TOKEN: "actions-token", TEXMINI_TINYTEX_BUNDLE: "TinyTeX-0" },
     async (_url, options) => {
@@ -76,6 +76,7 @@ test("release lookup authenticates when GitHub provides a token", async () => {
         json: async () => ({ assets: [{ name: assetName, browser_download_url: "https://example.test/archive" }] }),
       };
     },
+    "darwin",
   );
 
   assert.equal(requestOptions.headers.authorization, "Bearer actions-token");
