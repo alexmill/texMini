@@ -377,7 +377,9 @@ async function downloadTinytexArchive(url, destination, expectedDigest, fetchImp
 
 export function validateTinytexArchiveEntry(path, entry) {
   const normalizedPath = posix.normalize(path.replaceAll("\\", "/"));
-  const isManagedPath = (candidate) => candidate === "TinyTeX" || candidate.startsWith("TinyTeX/");
+  const isManagedPath = (candidate) => ["TinyTeX", ".TinyTeX"].some(
+    (rootName) => candidate === rootName || candidate.startsWith(`${rootName}/`),
+  );
   if (path.includes("\0") || posix.isAbsolute(path) || !isManagedPath(normalizedPath) || normalizedPath.includes("../")) {
     throw new TexMiniError(`Error: Unsafe path in TinyTeX archive: ${path}`);
   }
@@ -451,8 +453,10 @@ export async function installTinytexArchive(
   try {
     await downloadTinytexArchive(url, archive, digest, fetchImpl);
     await extractTinytexArchive(archive, extractionRoot);
-    const extractedRoot = join(extractionRoot, "TinyTeX");
-    if (!existsSync(extractedRoot)) throw new TexMiniError("Error: TinyTeX archive did not contain a TinyTeX runtime.");
+    const extractedRoot = ["TinyTeX", ".TinyTeX"]
+      .map((rootName) => join(extractionRoot, rootName))
+      .find((candidate) => existsSync(candidate));
+    if (!extractedRoot) throw new TexMiniError("Error: TinyTeX archive did not contain a TinyTeX runtime.");
     renameSync(extractedRoot, root);
   } finally {
     rmSync(archive, { force: true });

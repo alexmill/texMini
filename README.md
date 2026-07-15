@@ -39,7 +39,7 @@ Measured on macOS 26.3.1 arm64 on 2026-07-14. Platform prerequisites were alread
 
 | Path | Install / build | Execute | Wrapper install | First PDF | Added footprint | Measured network |
 | --- | --- | --- | ---: | ---: | ---: | --- |
-| npm, recommended for Node | `npm install --global git+https://github.com/alexmill/texMini.git#main` | `texmini test.tex` | 0.79s, 3.8 MiB from a local 14.5 kB package | 70.98s cold; 4.43s warm | 3.8 MiB wrapper plus 257.7 MiB TinyTeX after `test.tex` | npm dependency and Git transfer not measured; 0.9 MiB TinyTeX archive + 95.1 MiB package payload reported by `tlmgr` |
+| npm, recommended for Node | `npm install --global git+https://github.com/alexmill/texMini.git#main` | `texmini test.tex` | 0.79s, 3.8 MiB from a local 14.6 kB package | 70.98s cold; 4.43s warm | 3.8 MiB wrapper plus 257.7 MiB TinyTeX after `test.tex` | npm dependency and Git transfer not measured; 0.9 MiB TinyTeX archive + 95.1 MiB package payload reported by `tlmgr` |
 | uv tool, recommended | `uv tool install git+https://github.com/alexmill/texMini` | `texmini test.tex` | 1.16s, 216 KiB | 71.19s cold; 4.42s warm | 257.7 MiB TinyTeX after `test.tex` | 0.9 MiB archive + 95.1 MiB package payload reported by `tlmgr` |
 | uv local checkout | `uv sync` | `uv run texmini test.tex` | 1.32s, 124 KiB | Same managed runtime | Same 257.7 MiB | Same managed-runtime downloads |
 | Homebrew | `brew tap alexmill/texmini https://github.com/alexmill/texMini && brew install alexmill/texmini/texmini` | `texmini test.tex` | 8.44s, 136 KiB formula | Same managed runtime | 84.6 MiB Python dependency when not shared, plus TinyTeX | Managed-runtime downloads; Homebrew transfer not measured |

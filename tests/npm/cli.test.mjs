@@ -71,6 +71,7 @@ test("archive validation allows internal links and rejects paths outside TinyTeX
     ),
     true,
   );
+  assert.equal(validateTinytexArchiveEntry(".TinyTeX/bin/linux/tlmgr", { type: "File" }), true);
   assert.throws(
     () => validateTinytexArchiveEntry("TinyTeX/bin/escape", { type: "SymbolicLink", linkpath: "../../../outside" }),
     /Unsafe link/,

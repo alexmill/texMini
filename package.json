@@ -17,7 +17,7 @@
     "xz-decompress": "^0.2.3"
   },
   "scripts": {
-    "test": "node --test tests/npm/*.test.mjs",
+    "test": "node --test tests/npm/cli.test.mjs tests/npm/package.test.mjs",
     "pack:check": "npm pack --dry-run"
   },
   "engines": {
