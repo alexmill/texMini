@@ -1,5 +1,5 @@
 {
-  description = "Ultra-lean TeX Live (~41MB) with smart package loading and bibliography support by default";
+  description = "Ultra-lean TeX Live with smart file detection and bibliography support by default";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/release-25.05";
@@ -12,262 +12,454 @@
         pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
         texlive = pkgs.texlive;
 
-        # --- Basic LaTeX (no bibliography) ---
         basicPackages = [
-          "scheme-infraonly"   # engines + tlmgr
-          "latex-bin"          # LaTeX formats + required macros (article.cls, etc.)
-          "amsmath"            # math support used in >90% of docs
+          "scheme-infraonly"
+          "latex-bin"
+          "amsmath"
           "amsfonts"
           "amscls"
-          "geometry"           # page margins; small footprint
-          "hyperref"           # PDF metadata / links; pulls url & hycolor
-          "xcolor"             # needed by hyperref & geometry for colors
-          "graphics"           # includegraphics & small set of friends
-          "babel"              # basic multilingual support
-          "latexmk"
-          "framed"
-          "ucs"
-          "ec"
-          "pgf"                # TikZ graphics
-          "pdftexcmds"         # hyperref dependency
-          "infwarerr"
-          "kvoptions"
-          "etoolbox"
-          "refcount"
-          "collection-latexrecommended"
-          "cm-super"           # Complete Computer Modern font collection
-          "lm"                 # Latin Modern fonts
-          "tikz-bayesnet"
+          "geometry"
         ];
 
-        # --- LaTeX + Bibliography ---
-        biblioPackages = basicPackages ++ [
+        basicLatexmkPackages = basicPackages ++ [
+          "latexmk"
+        ];
+
+        commonPackages = [
+          "hyperref"
+          "xcolor"
+          "graphics"
+          "babel"
+          "ec"
+          "epstopdf-pkg"
+          "framed"
+          "metafont"
+          "mfware"
+          "pgf"
+          "l3packages"
+          "lm"
+        ];
+
+        biblioPackages = basicPackages ++ commonPackages ++ [
+          "latexmk"
           "biblatex"
           "biber"
           "csquotes"
         ];
 
-        # Helper functions
         asAttr = names: builtins.listToAttrs (map (n: { name = n; value = texlive.${n}; }) names);
         makeTexLive = packages: texlive.combine (asAttr packages);
 
-        # Base distributions
         texMiniBasic = makeTexLive basicPackages;
+        texMiniBasicLatexmk = makeTexLive basicLatexmkPackages;
         texMiniBiblio = makeTexLive biblioPackages;
-        
-        # Default is now bibliography-enabled for better compatibility
         texMiniDefault = texMiniBiblio;
 
-        # Cleanup script
-        cleanupScript = pkgs.writeShellScript "texmini-cleanup" ''
-          set -euo pipefail
-          
-          # Parse arguments to determine if cleanup should be disabled and separate file arguments
-          AUTO_CLEAN=''${TEXMINI_AUTO_CLEAN:-true}
-          LATEXMK_ARGS=()
-          TEX_FILE=""
-          BIB_FILES=()
-          
-          for arg in "$@"; do
-            case "$arg" in
-              -pvc) 
-                AUTO_CLEAN=false
-                LATEXMK_ARGS+=("$arg")
-                ;;
-              --no-clean) 
-                AUTO_CLEAN=false
-                # Don't pass this custom flag to latexmk
-                ;;
-              *.tex)
-                if [[ -z "$TEX_FILE" ]]; then
-                  TEX_FILE="$arg"
-                  LATEXMK_ARGS+=("$arg")
-                else
-                  echo "Error: Multiple .tex files specified: $TEX_FILE and $arg"
-                  echo "Please specify only one .tex file to compile."
+        version = "0.1.0";
+
+        makeLatexmkCommand = name: defaultEngine: texlivePackage: pkgs.writeTextFile {
+          inherit name;
+          executable = true;
+          destination = "/bin/${name}";
+          text = ''
+            #!${pkgs.bash}/bin/bash
+            set -uo pipefail
+
+            auto_clean="''${TEXMINI_AUTO_CLEAN:-true}"
+            tex_file=""
+            latexmk_args=()
+            bib_files=()
+            latexmk_engine_args=()
+
+            set_engine() {
+              case "$1" in
+                texmini|latexmk|pdflatex)
+                  latexmk_engine_args=("-pdf")
+                  ;;
+                lualatex)
+                  latexmk_engine_args=("-lualatex")
+                  ;;
+                xelatex)
+                  latexmk_engine_args=("-xelatex")
+                  ;;
+                *)
+                  echo "Error: --engine must be pdflatex, lualatex, xelatex, or latexmk." >&2
                   exit 1
+                  ;;
+              esac
+            }
+
+            accept_backend() {
+              case "$1" in
+                auto|latexmk)
+                  ;;
+                *)
+                  echo "Error: ${name} uses the pinned Nix latexmk backend; use the uv/TinyTeX path for runtime package autoinstall." >&2
+                  exit 1
+                  ;;
+              esac
+            }
+
+            report_missing_files() {
+              log_file="''${tex_file%.tex}.log"
+              [ -f "$log_file" ] || return 0
+              missing_files=()
+              seen=" "
+
+              while IFS= read -r line || [ -n "$line" ]; do
+                missing_file=""
+                if [[ "$line" == *"not found"* && "$line" =~ ([A-Za-z0-9_.+-]+\.(sty|cls|bst|bbx|cbx|def|fd|map|tfm|pfb|otf|ttf|enc|cfg)) ]]; then
+                  missing_file="''${BASH_REMATCH[1]}"
+                elif [[ "$line" =~ mktextfm[[:space:]]+([A-Za-z0-9_.-]+) ]]; then
+                  missing_file="''${BASH_REMATCH[1]}.tfm"
+                elif [[ "$line" =~ Metric[[:space:]]+\(TFM\)[[:space:]]+file[[:space:]]+not[[:space:]]+found && "$line" =~ =([A-Za-z0-9_.-]+) ]]; then
+                  missing_file="''${BASH_REMATCH[1]}.tfm"
                 fi
-                ;;
-              *.bib)
-                BIB_FILES+=("$arg")
-                # Don't add .bib files to latexmk args - they're handled automatically
-                ;;
-              *)
-                LATEXMK_ARGS+=("$arg")
-                ;;
-            esac
-          done
-          
-          # If TEX_FILE is set, we have an explicit .tex file
-          has_tex_file=false
-          detected_tex_file=""
-          if [[ -n "$TEX_FILE" ]]; then
-            has_tex_file=true
-            detected_tex_file="$TEX_FILE"
-          fi
-          
-          # If no .tex file specified, try to auto-detect
-          if [[ "$has_tex_file" == "false" ]]; then
-            # Check if there's exactly one .tex file in the current directory
-            tex_files=(*.tex)
-            if [ ''${#tex_files[@]} -eq 1 ] && [ -f "''${tex_files[0]}" ]; then
-              echo "Auto-detected LaTeX file: ''${tex_files[0]}"
-              LATEXMK_ARGS+=("''${tex_files[0]}")
-              detected_tex_file="''${tex_files[0]}"
-            else
-              echo "Error: No .tex file specified and unable to auto-detect."
-              if [ ''${#tex_files[@]} -eq 0 ]; then
-                echo "No .tex files found in current directory."
-              elif [ ''${#tex_files[@]} -gt 1 ]; then
-                echo "Multiple .tex files found: ''${tex_files[*]}"
-                echo "Please specify which file to compile."
+
+                if [ -n "$missing_file" ] && [[ "$seen" != *" $missing_file "* ]]; then
+                  seen="$seen$missing_file "
+                  missing_files+=("$missing_file")
+                fi
+              done < "$log_file"
+
+              if [ "''${#missing_files[@]}" -gt 0 ]; then
+                echo "Missing TeX files found: ''${missing_files[*]}"
               fi
-              exit 1
-            fi
-          fi
-          
-          # Auto-detect bibliography setup if the .tex file uses biblatex/biber
-          if [[ -n "$detected_tex_file" && -f "$detected_tex_file" ]]; then
-            # Check if the .tex file uses biblatex or bibliography commands
-            if grep -q -E '\\(usepackage.*biblatex|bibliography\{|addbibresource\{)' "$detected_tex_file"; then
-              echo "Detected bibliography usage in $detected_tex_file"
-              
-              # Use explicitly specified .bib files if provided
-              if [ ''${#BIB_FILES[@]} -gt 0 ]; then
-                echo "Using explicitly specified bibliography files: ''${BIB_FILES[*]}"
-                
-                # Validate that all specified .bib files exist
-                for bib_file in "''${BIB_FILES[@]}"; do
-                  if [[ ! -f "$bib_file" ]]; then
-                    echo "Error: Specified bibliography file '$bib_file' not found"
+            }
+
+            set_engine "${defaultEngine}"
+
+            while [ "$#" -gt 0 ]; do
+              case "$1" in
+                --version)
+                  echo "${version}"
+                  exit 0
+                  ;;
+                --help|-h)
+                  echo "Usage: ${name} [--engine pdflatex|lualatex|xelatex|latexmk] [--no-clean] [document.tex] [refs.bib ...]"
+                  exit 0
+                  ;;
+                --engine)
+                  if [ "$#" -lt 2 ]; then
+                    echo "Error: --engine requires pdflatex, lualatex, xelatex, or latexmk." >&2
                     exit 1
                   fi
-                done
-                
-                # Check if the .tex file references the specified .bib files
-                for bib_file in "''${BIB_FILES[@]}"; do
-                  if ! grep -q "$bib_file" "$detected_tex_file"; then
-                    echo "Warning: Bibliography file $bib_file specified but not referenced in $detected_tex_file"
-                    echo "You may need to add \\addbibresource{$bib_file} to your document"
+                  set_engine "$2"
+                  shift 2
+                  ;;
+                --engine=*)
+                  set_engine "''${1#--engine=}"
+                  shift
+                  ;;
+                --backend)
+                  if [ "$#" -lt 2 ]; then
+                    echo "Error: --backend requires auto or latexmk for this Nix wrapper." >&2
+                    exit 1
                   fi
-                done
-              else
-                # Auto-detect .bib files as before
-                bib_files=(*.bib)
-                if [ ''${#bib_files[@]} -eq 1 ] && [ -f "''${bib_files[0]}" ]; then
-                  echo "Auto-detected bibliography file: ''${bib_files[0]}"
-                  
-                  # Check if the .tex file already references this .bib file
-                  if ! grep -q "''${bib_files[0]}" "$detected_tex_file"; then
-                    echo "Warning: Bibliography file ''${bib_files[0]} found but not referenced in $detected_tex_file"
-                    echo "You may need to add \\addbibresource{''${bib_files[0]}} to your document"
+                  accept_backend "$2"
+                  shift 2
+                  ;;
+                --backend=*)
+                  accept_backend "''${1#--backend=}"
+                  shift
+                  ;;
+                --no-clean)
+                  auto_clean=false
+                  shift
+                  ;;
+                --no-install)
+                  shift
+                  ;;
+                -pvc)
+                  auto_clean=false
+                  latexmk_args+=("$1")
+                  shift
+                  ;;
+                *.tex)
+                  if [ -n "$tex_file" ]; then
+                    echo "Error: Multiple .tex files specified: $tex_file and $1" >&2
+                    exit 1
                   fi
-                elif [ ''${#bib_files[@]} -eq 0 ]; then
-                  echo "Warning: Bibliography commands found in $detected_tex_file but no .bib files found"
-                elif [ ''${#bib_files[@]} -gt 1 ]; then
-                  echo "Info: Multiple .bib files found: ''${bib_files[*]}"
-                  echo "Make sure the correct ones are referenced in your document"
-                  echo "Or specify explicitly: nix run . -- $detected_tex_file file1.bib file2.bib"
+                  tex_file="$1"
+                  latexmk_args+=("$1")
+                  shift
+                  ;;
+                *.bib)
+                  bib_files+=("$1")
+                  shift
+                  ;;
+                *)
+                  latexmk_args+=("$1")
+                  shift
+                  ;;
+              esac
+            done
+
+            if [ -z "$tex_file" ]; then
+              shopt -s nullglob
+              tex_files=(*.tex)
+              shopt -u nullglob
+              if [ "''${#tex_files[@]}" -ne 1 ]; then
+                echo "Error: No .tex file specified and unable to auto-detect." >&2
+                exit 1
+              fi
+              tex_file="''${tex_files[0]}"
+              latexmk_args+=("$tex_file")
+              echo "Auto-detected LaTeX file: $tex_file"
+            fi
+
+            export PATH="${pkgs.lib.makeBinPath [ texlivePackage pkgs.coreutils ]}:$PATH"
+
+            if [ -f "$tex_file" ]; then
+              tex_source="$(< "$tex_file")"
+              if [[ "$tex_source" =~ \\(usepackage.*biblatex|bibliography\{|addbibresource\{) ]]; then
+                echo "Detected bibliography usage in $tex_file"
+                if [ "''${#bib_files[@]}" -gt 0 ]; then
+                  echo "Using explicitly specified bibliography files: ''${bib_files[*]}"
+                  for bib_file in "''${bib_files[@]}"; do
+                    if [ ! -f "$bib_file" ]; then
+                      echo "Error: Specified bibliography file '$bib_file' not found" >&2
+                      exit 1
+                    fi
+                    if [[ "$tex_source" != *"$bib_file"* ]]; then
+                      echo "Warning: Bibliography file $bib_file specified but not referenced in $tex_file"
+                      echo "You may need to add \\addbibresource{$bib_file} to your document"
+                    fi
+                  done
+                else
+                  shopt -s nullglob
+                  detected_bib_files=(*.bib)
+                  shopt -u nullglob
+                  if [ "''${#detected_bib_files[@]}" -eq 1 ]; then
+                    echo "Auto-detected bibliography file: ''${detected_bib_files[0]}"
+                    if [[ "$tex_source" != *"''${detected_bib_files[0]}"* ]]; then
+                      echo "Warning: Bibliography file ''${detected_bib_files[0]} found but not referenced in $tex_file"
+                      echo "You may need to add \\addbibresource{''${detected_bib_files[0]}} to your document"
+                    fi
+                  elif [ "''${#detected_bib_files[@]}" -eq 0 ]; then
+                    echo "Warning: Bibliography commands found in $tex_file but no .bib files found"
+                  else
+                    echo "Info: Multiple .bib files found: ''${detected_bib_files[*]}"
+                    echo "Make sure the correct ones are referenced in your document"
+                    echo "Or specify explicitly: ${name} $tex_file file1.bib file2.bib"
+                  fi
                 fi
               fi
             fi
-          fi
-          
-          # Run latexmk with filtered arguments
-          latexmk "''${LATEXMK_ARGS[@]}"
-          exit_code=$?
-          
-          # Clean up auxiliary files if compilation was successful and auto-clean is enabled
-          if [[ $exit_code -eq 0 && "$AUTO_CLEAN" == "true" ]]; then
-            # After successful compilation, clean up ALL auxiliary files
-            # Keep only: .tex (source), .bib (bibliography database), .pdf (output)
-            
-            # Get the base name from the first argument (assuming it's the .tex file)
-            basename=""
-            for arg in "''${LATEXMK_ARGS[@]}"; do
-              if [[ "$arg" == *.tex ]]; then
-                basename="''${arg%.tex}"
-                break
-              fi
-            done
-            
-            if [[ -n "$basename" ]]; then
-              # Remove all auxiliary files for this document
+
+            latexmk "''${latexmk_engine_args[@]}" "''${latexmk_args[@]}"
+            status=$?
+
+            if [ "$status" -eq 0 ] && [ "$auto_clean" = "true" ]; then
+              base="''${tex_file%.tex}"
               for ext in aux bbl bcf blg fls fdb_latexmk log nav out snm toc vrb run.xml; do
-                rm -f "$basename.$ext" 2>/dev/null || true
+                rm -f "$base.$ext"
               done
-              echo "✓ Build successful, all auxiliary files cleaned (kept: .tex, .bib, .pdf)"
-            else
-              # Fallback: remove common auxiliary file extensions
-              for ext in aux bbl bcf blg fls fdb_latexmk log nav out snm toc vrb; do
-                find . -maxdepth 1 -name "*.$ext" -delete 2>/dev/null || true
-              done
-              find . -maxdepth 1 -name "*.run.xml" -delete 2>/dev/null || true
-              echo "✓ Build successful, auxiliary files cleaned"
+              echo "Build successful, all auxiliary files cleaned (kept: .tex, .bib, .pdf)"
+            elif [ "$status" -ne 0 ]; then
+              report_missing_files
+              echo "Build failed, keeping auxiliary files for debugging"
             fi
-          elif [[ $exit_code -ne 0 ]]; then
-            echo "✗ Build failed, keeping auxiliary files for debugging"
-          fi
-          
-          exit $exit_code
-        '';
 
-        # Create individual command wrappers
-        makeLatexCommand = name: engine: texlivePackage: pkgs.writeShellScriptBin name ''
-          set -euo pipefail
-          export PATH="${texlivePackage}/bin:$PATH"
-          exec ${cleanupScript} ${engine} "$@"
-        '';
-
-        makePdfLatexCommand = name: texlivePackage: makeLatexCommand name "-pdf" texlivePackage;
-        makeLuaLatexCommand = name: texlivePackage: makeLatexCommand name "-lualatex" texlivePackage;
-        makeXeLatexCommand = name: texlivePackage: makeLatexCommand name "-xelatex" texlivePackage;
-
-      in {
-        packages = {
-          # Default LaTeX commands (now with bibliography support)
-          pdflatex = makePdfLatexCommand "pdflatex" texMiniDefault;
-          lualatex = makeLuaLatexCommand "lualatex" texMiniDefault;
-          xelatex = makeXeLatexCommand "xelatex" texMiniDefault;
-          latexmk = makePdfLatexCommand "latexmk" texMiniDefault;
-          
-          # Basic LaTeX commands (lightweight, no bibliography)
-          pdflatex-basic = makePdfLatexCommand "pdflatex-basic" texMiniBasic;
-          lualatex-basic = makeLuaLatexCommand "lualatex-basic" texMiniBasic;
-          xelatex-basic = makeXeLatexCommand "xelatex-basic" texMiniBasic;
-          latexmk-basic = makePdfLatexCommand "latexmk-basic" texMiniBasic;
-          
-          # Explicit bibliography-enabled LaTeX commands (same as default now)
-          pdflatex-biblio = makePdfLatexCommand "pdflatex-biblio" texMiniBiblio;
-          lualatex-biblio = makeLuaLatexCommand "lualatex-biblio" texMiniBiblio;
-          xelatex-biblio = makeXeLatexCommand "xelatex-biblio" texMiniBiblio;
-          latexmk-biblio = makePdfLatexCommand "latexmk-biblio" texMiniBiblio;
-
-          # Raw TeX Live packages (for nix shell usage)
-          texMiniBasic = texMiniBasic;
-          texMiniBiblio = texMiniBiblio;
-
-          # Default (now bibliography-enabled)
-          default = makePdfLatexCommand "texmini" texMiniDefault;
+            exit "$status"
+          '';
         };
 
-        # For nix shell usage
+        makeDirectTexCommand = name: engine: texlivePackage: pkgs.writeTextFile {
+          inherit name;
+          executable = true;
+          destination = "/bin/${name}";
+          text = ''
+            #!${pkgs.bash}/bin/bash
+            auto_clean="''${TEXMINI_AUTO_CLEAN:-true}"
+            tex_file=""
+            args=()
+
+            accept_backend() {
+              case "$1" in
+                auto|direct)
+                  ;;
+                *)
+                  echo "Error: ${name} runs the pinned Nix direct ${engine} backend; use a latexmk wrapper or the uv/TinyTeX path for other backends." >&2
+                  exit 1
+                  ;;
+              esac
+            }
+
+            report_missing_files() {
+              log_file="''${tex_file%.tex}.log"
+              [ -f "$log_file" ] || return 0
+              missing_files=()
+              seen=" "
+
+              while IFS= read -r line || [ -n "$line" ]; do
+                missing_file=""
+                if [[ "$line" == *"not found"* && "$line" =~ ([A-Za-z0-9_.+-]+\.(sty|cls|bst|bbx|cbx|def|fd|map|tfm|pfb|otf|ttf|enc|cfg)) ]]; then
+                  missing_file="''${BASH_REMATCH[1]}"
+                elif [[ "$line" =~ mktextfm[[:space:]]+([A-Za-z0-9_.-]+) ]]; then
+                  missing_file="''${BASH_REMATCH[1]}.tfm"
+                elif [[ "$line" =~ Metric[[:space:]]+\(TFM\)[[:space:]]+file[[:space:]]+not[[:space:]]+found && "$line" =~ =([A-Za-z0-9_.-]+) ]]; then
+                  missing_file="''${BASH_REMATCH[1]}.tfm"
+                fi
+
+                if [ -n "$missing_file" ] && [[ "$seen" != *" $missing_file "* ]]; then
+                  seen="$seen$missing_file "
+                  missing_files+=("$missing_file")
+                fi
+              done < "$log_file"
+
+              if [ "''${#missing_files[@]}" -gt 0 ]; then
+                echo "Missing TeX files found: ''${missing_files[*]}"
+              fi
+            }
+
+            while [ "$#" -gt 0 ]; do
+              case "$1" in
+                --version)
+                  echo "${version}"
+                  exit 0
+                  ;;
+                --help|-h)
+                  echo "Usage: ${name} [--no-clean] [document.tex]"
+                  exit 0
+                  ;;
+                --no-clean)
+                  auto_clean=false
+                  shift
+                  ;;
+                --no-install)
+                  shift
+                  ;;
+                --backend)
+                  if [ "$#" -lt 2 ]; then
+                    echo "Error: --backend requires auto or direct for this Nix wrapper." >&2
+                    exit 1
+                  fi
+                  accept_backend "$2"
+                  shift 2
+                  ;;
+                --backend=*)
+                  accept_backend "''${1#--backend=}"
+                  shift
+                  ;;
+                --engine|--engine=*)
+                  echo "Error: ${name} is already bound to ${engine}; choose a different Nix target for another engine." >&2
+                  exit 1
+                  ;;
+                -pvc)
+                  echo "Error: ${name} runs ${engine} directly and does not support continuous-preview mode." >&2
+                  exit 1
+                  ;;
+                *.tex)
+                  if [ -n "$tex_file" ]; then
+                    echo "Error: Multiple .tex files specified: $tex_file and $1" >&2
+                    exit 1
+                  fi
+                  tex_file="$1"
+                  args+=("$1")
+                  shift
+                  ;;
+                *)
+                  args+=("$1")
+                  shift
+                  ;;
+              esac
+            done
+
+            if [ -z "$tex_file" ]; then
+              shopt -s nullglob
+              tex_files=(*.tex)
+              shopt -u nullglob
+              if [ "''${#tex_files[@]}" -ne 1 ]; then
+                echo "Error: Specify exactly one .tex file." >&2
+                exit 1
+              fi
+              tex_file="''${tex_files[0]}"
+              args+=("$tex_file")
+              echo "Auto-detected LaTeX file: $tex_file"
+            fi
+
+            export PATH="${pkgs.lib.makeBinPath [ texlivePackage pkgs.coreutils ]}:$PATH"
+            "${engine}" -interaction=nonstopmode -file-line-error "''${args[@]}"
+            status=$?
+
+            if [ "$status" -eq 0 ] && [ "$auto_clean" = "true" ]; then
+              base="''${tex_file%.tex}"
+              for ext in aux bbl bcf blg fls fdb_latexmk log nav out snm toc vrb run.xml; do
+                rm -f "$base.$ext"
+              done
+              echo "Build successful, all auxiliary files cleaned (kept: .tex, .bib, .pdf)"
+            elif [ "$status" -ne 0 ]; then
+              report_missing_files
+              echo "Build failed, keeping auxiliary files for debugging"
+            fi
+
+            exit "$status"
+          '';
+        };
+
+        makeDefaultCommand = name: makeLatexmkCommand name "pdflatex" texMiniDefault;
+        defaultPackage = makeDefaultCommand "texmini";
+        basicPackage = makeDirectTexCommand "texmini-basic" "pdflatex" texMiniBasic;
+
+        makeDockerImage = name: package: binaryName: pkgs.dockerTools.buildLayeredImage {
+          inherit name;
+          tag = "latest";
+          contents = [ package ];
+          extraCommands = ''
+            mkdir -p bin tmp work
+            ln -s ${pkgs.bash}/bin/bash bin/sh
+            chmod 1777 tmp
+          '';
+          config = {
+            Entrypoint = [ "${package}/bin/${binaryName}" ];
+            WorkingDir = "/work";
+          };
+        };
+      in {
+        packages = {
+          pdflatex = makeLatexmkCommand "pdflatex" "pdflatex" texMiniDefault;
+          lualatex = makeLatexmkCommand "lualatex" "lualatex" texMiniDefault;
+          xelatex = makeLatexmkCommand "xelatex" "xelatex" texMiniDefault;
+          latexmk = makeLatexmkCommand "latexmk" "latexmk" texMiniDefault;
+
+          pdflatex-basic = makeDirectTexCommand "pdflatex-basic" "pdflatex" texMiniBasic;
+          lualatex-basic = makeDirectTexCommand "lualatex-basic" "lualatex" texMiniBasic;
+          xelatex-basic = makeDirectTexCommand "xelatex-basic" "xelatex" texMiniBasic;
+          latexmk-basic = makeLatexmkCommand "latexmk-basic" "latexmk" texMiniBasicLatexmk;
+
+          pdflatex-biblio = makeLatexmkCommand "pdflatex-biblio" "pdflatex" texMiniBiblio;
+          lualatex-biblio = makeLatexmkCommand "lualatex-biblio" "lualatex" texMiniBiblio;
+          xelatex-biblio = makeLatexmkCommand "xelatex-biblio" "xelatex" texMiniBiblio;
+          latexmk-biblio = makeLatexmkCommand "latexmk-biblio" "latexmk" texMiniBiblio;
+
+          texMiniBasic = texMiniBasic;
+          texMiniBasicLatexmk = texMiniBasicLatexmk;
+          texMiniBiblio = texMiniBiblio;
+          texMiniCli = defaultPackage;
+
+          docker = makeDockerImage "texmini" defaultPackage "texmini";
+          docker-basic = makeDockerImage "texmini-basic" basicPackage "texmini-basic";
+
+          default = defaultPackage;
+        };
+
         devShells = {
           default = pkgs.mkShell {
-            buildInputs = [ texMiniDefault ];
+            buildInputs = [ texMiniDefault pkgs.python3Minimal pkgs.uv pkgs.zig ];
           };
           basic = pkgs.mkShell {
-            buildInputs = [ texMiniBasic ];
+            buildInputs = [ texMiniBasic pkgs.python3Minimal pkgs.uv pkgs.zig ];
           };
           biblio = pkgs.mkShell {
-            buildInputs = [ texMiniBiblio ];
+            buildInputs = [ texMiniBiblio pkgs.python3Minimal pkgs.uv pkgs.zig ];
           };
         };
 
         apps = {
           default = {
             type = "app";
-            program = "${self.packages.${system}.default}/bin/texmini";
+            program = "${defaultPackage}/bin/texmini";
           };
         };
       });

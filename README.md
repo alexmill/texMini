@@ -1,468 +1,361 @@
-# texMini: Ultra-lean LaTeX with Bibliography Support by Default
+# texMini
 
-A minimal TeX Live distribution (~41MB) with intelligent file auto-detection, automatic bibliography support, and smart cleanup.
+texMini is a small LaTeX command wrapper with managed package autoinstall, bibliography detection, and auxiliary-file cleanup. It provides full LaTeX engines; the default only minimizes what is downloaded before a document proves it needs more.
 
-## Quick Start
+## Requirements & Quickstart
+
+Install one of these prerequisites:
+
+- Node.js 20+ with npm and Perl (recommended for Node users)
+- `uv` (recommended for Python users)
+- Homebrew
+- Nix
+- Docker
+- Zig and Python 3.10+
+
+An existing TeX Live or BasicTeX installation with `latexmk` is optional. texMini reuses it without modifying it.
 
 ```bash
-# Auto-detect and compile with bibliography support included
-nix run github:alexmill/texMini
-
-# Specify files explicitly (recommended for scripts and automation)
-nix run github:alexmill/texMini -- document.tex bibliography.bib
-
-# Just specify .tex file (auto-detects .bib if present and unambiguous)
-nix run github:alexmill/texMini -- document.tex
+npm install --global git+https://github.com/alexmill/texMini.git#main
+texmini test.tex
 ```
 
-## Full Details
+The npm launcher is Node-native and does not require Python or uv. See the install section for the uv alternative and one-off `npm exec` usage.
+
+If the current directory contains exactly one `.tex` file, run `texmini` without a filename.
+
+The default selection minimizes added footprint:
+
+1. Reuse `latexmk` from `PATH` when present. This adds no TeX runtime and never runs `tlmgr install`.
+2. Otherwise, download the 0.9 MiB TinyTeX-0 infrastructure archive, bootstrap the core engines, and batch-install only packages required by the document.
+
+TinyTeX-1 is the faster cold-start option. Nix and Docker use pinned package closures and never install packages at runtime.
+
+## Benchmarks
+
+Measured on macOS 26.3.1 arm64 on 2026-07-14. Platform prerequisites were already installed. Wrapper installs used a local checkout so package-manager overhead is separate from source-transfer time. `test.tex` includes TikZ and a Biber bibliography; `simple.tex` is used only for the intentionally reduced `-basic` targets.
+
+### Install And First PDF
+
+| Path | Install / build | Execute | Wrapper install | First PDF | Added footprint | Measured network |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| npm, recommended for Node | `npm install --global git+https://github.com/alexmill/texMini.git#main` | `texmini test.tex` | 0.79s, 3.8 MiB from a local 14.5 kB package | 70.98s cold; 4.43s warm | 3.8 MiB wrapper plus 257.7 MiB TinyTeX after `test.tex` | npm dependency and Git transfer not measured; 0.9 MiB TinyTeX archive + 95.1 MiB package payload reported by `tlmgr` |
+| uv tool, recommended | `uv tool install git+https://github.com/alexmill/texMini` | `texmini test.tex` | 1.16s, 216 KiB | 71.19s cold; 4.42s warm | 257.7 MiB TinyTeX after `test.tex` | 0.9 MiB archive + 95.1 MiB package payload reported by `tlmgr` |
+| uv local checkout | `uv sync` | `uv run texmini test.tex` | 1.32s, 124 KiB | Same managed runtime | Same 257.7 MiB | Same managed-runtime downloads |
+| Homebrew | `brew tap alexmill/texmini https://github.com/alexmill/texMini && brew install alexmill/texmini/texmini` | `texmini test.tex` | 8.44s, 136 KiB formula | Same managed runtime | 84.6 MiB Python dependency when not shared, plus TinyTeX | Managed-runtime downloads; Homebrew transfer not measured |
+| Zig wrapper | `zig build install --prefix ~/.local` | `~/.local/bin/texmini test.tex` | 6.38s, 96 KiB | Same managed runtime | Uses Python from `PATH`, plus TinyTeX | No wrapper network from a local checkout; same managed-runtime downloads |
+| Existing TeX Live | Install TeX Live separately, then install a wrapper above | `texmini --backend latexmk test.tex` | Depends on wrapper | Not measured; no host `latexmk` | No added TeX runtime | None from texMini; package autoinstall is disabled |
+| TinyTeX-1 opt-in | Set `TEXMINI_TINYTEX_BUNDLE=TinyTeX-1` before the first run | `texmini test.tex` | Same wrapper | 24.00s cold; 4.35s warm | 338.0 MiB after `test.tex` | 63.3 MiB archive + 67.5 MiB package payload reported by `tlmgr` |
+| Nix profile | `nix profile install github:alexmill/texMini` | `texmini test.tex` | Not measured on host | Same closure tested through Docker | 500.7 MiB unpacked closure | 113.6 MiB declared download; no runtime network |
+| Nix one-shot | No persistent wrapper install | `nix run github:alexmill/texMini -- test.tex` | Not measured on host | Same closure tested through Docker | Same default closure | Same realization download; no runtime autoinstall |
+| Docker default | `docker build --no-cache -t texmini .` | `docker run --rm --network none -v "$PWD:/work" texmini test.tex` | 73.80s build | 4.18s median | 474.3 MiB image | 113.6 MiB Nix download during build; runtime network disabled |
+| Docker basic | `docker build --no-cache --build-arg NIX_TARGET=pdflatex-basic -t texmini-basic .` | `docker run --rm --network none -v "$PWD:/work" texmini-basic simple.tex` | 54.49s build | 0.252s median for `simple.tex` | 407.3 MiB image | 105.7 MiB Nix download during build; runtime network disabled |
+
+`tlmgr` payload is the sum of package sizes printed by TeX Live. It excludes HTTP and repository-index overhead. The Homebrew measurement used a temporary local tap and upgraded existing dependencies, so its elapsed time is reported but is less isolated than the uv and Zig wrapper measurements.
+
+### Managed Bundle Comparison
+
+Each bundle ran the same simple, common-package, seeded random-package, and overdispersed bibliography fixtures against an initially empty managed directory.
+
+| Bundle | Release archive | Simple cold | Simple warm median | Final allocated runtime | Default use |
+| --- | ---: | ---: | ---: | ---: | --- |
+| TinyTeX-0 | 0.9 MiB | 40.40s | 0.339s | 254.5 MiB | Default: lowest measured footprint |
+| TinyTeX-1 | 63.3 MiB | 9.86s | 0.334s | 340.5 MiB | Faster first build |
+| TinyTeX | 198.7 MiB | 17.01s | 0.351s | 555.2 MiB | Preinstalled community bundle |
+
+TinyTeX-0 saves 86.0 MiB versus TinyTeX-1 after the full fixture corpus. It pays for that with package-manager work on the first document. Full engines remain available: from the hydrated TinyTeX-0 `test.tex` runtime, first XeLaTeX provisioning took 12.75s and 64.6 MiB, while LuaLaTeX took 6.45s and 1.5 MiB.
+
+Raw results and methodology are in [`benchmarks/results`](benchmarks/results) and [`benchmarks/README.md`](benchmarks/README.md). Nix was unavailable on the host, so fresh Nix closures were measured through Docker. The npm benchmark used the packed artifact with a failing `python3` shadow first on `PATH` to verify that the Node path is independent of Python.
+
+## Backend Selection
+
+Most users should leave backend selection on `auto`.
+
+| Invocation | Install / build | Execute | Selected backend | Runtime package install |
+| --- | --- | --- | --- | --- |
+| npm | Install from GitHub as above | `texmini document.tex` | existing `latexmk`, otherwise TinyTeX-0 | Managed TinyTeX only |
+| uv tool | `uv tool install git+https://github.com/alexmill/texMini` | `texmini document.tex` | existing `latexmk`, otherwise TinyTeX-0 | Managed TinyTeX only |
+| uv checkout | `uv sync` | `uv run texmini document.tex` | existing `latexmk`, otherwise TinyTeX-0 | Managed TinyTeX only |
+| Homebrew | Tap and install as above | `texmini document.tex` | existing `latexmk`, otherwise TinyTeX-0 | Managed TinyTeX only |
+| Zig | `zig build install --prefix ~/.local` | `~/.local/bin/texmini document.tex` | existing `latexmk`, otherwise TinyTeX-0 | Managed TinyTeX only |
+| Existing TeX Live | Install TeX Live separately | `texmini --backend latexmk document.tex` | `latexmk` from `PATH` | Never |
+| Managed TinyTeX | Optional: `texmini install-tinytex` | `texmini --backend tinytex document.tex` | TinyTeX-0 owned by texMini | Enabled by default |
+| Nix profile | `nix profile install github:alexmill/texMini` | `texmini document.tex` | pinned Nix `latexmk` closure | Never |
+| Nix one-shot | None | `nix run github:alexmill/texMini -- document.tex` | pinned Nix `latexmk` closure | Never |
+| Nix basic | None | `nix run github:alexmill/texMini#pdflatex-basic -- simple.tex` | pinned direct `pdflatex` closure | Never |
+| Docker default | `docker build -t texmini .` | `docker run --rm -v "$PWD:/work" texmini document.tex` | pinned Nix `latexmk` closure | Never |
+| Docker basic | Build with `NIX_TARGET=pdflatex-basic` | Run `texmini-basic simple.tex` in the image | pinned direct `pdflatex` closure | Never |
+
+Use the default Nix/Docker target for bibliography-capable documents. The `-basic` targets deliberately omit bibliography, TikZ, hyperlinks, and multi-pass orchestration.
+
+## Install
+
+### npm
+
+Install directly from GitHub over HTTPS:
+
 ```bash
-# Auto-detect .tex file in current directory (bibliography support included)
-nix run github:alexmill/texMini#pdflatex
+npm install --global git+https://github.com/alexmill/texMini.git#main
+texmini document.tex
+```
 
-# Or specify explicitly  
+Run without a permanent installation:
+
+```bash
+npm exec --yes \
+  --package=git+https://github.com/alexmill/texMini.git#main \
+  -- texmini document.tex
+```
+
+The npm package has no lifecycle scripts. npm installs its JavaScript archive-extraction dependencies normally; TinyTeX is downloaded only when the first document needs a managed runtime. Managed installation currently supports macOS and Linux and requires Perl for TeX Live's tools. On Windows, npm can use an existing `latexmk` backend.
+
+### uv
+
+```bash
+uv tool install git+https://github.com/alexmill/texMini
+texmini document.tex
+```
+
+The uv tool install uses texMini's shell wrapper directly, so it runs Python with `-S` instead of a generated console-script entry point.
+
+For local development from this checkout:
+
+```bash
+uv run texmini document.tex
+```
+
+### Nix
+
+```bash
+nix profile install github:alexmill/texMini
+texmini document.tex
+```
+
+The default Nix command uses the pinned TeX Live distribution from the flake instead of the TinyTeX downloader.
+
+Available Nix commands:
+
+```bash
 nix run github:alexmill/texMini#pdflatex -- document.tex
-
-# Different engines - with bibliography support by default
 nix run github:alexmill/texMini#lualatex -- document.tex
 nix run github:alexmill/texMini#xelatex -- document.tex
-
-# Lightweight versions without bibliography packages
-nix run github:alexmill/texMini#pdflatex-basic -- document.tex
-nix run github:alexmill/texMini#lualatex-basic -- document.tex  
-nix run github:alexmill/texMini#xelatex-basic -- document.tex
-
-# Use latexmk (most common, bibliography support included)
-nix run github:alexmill/texMini#latexmk -- -pdf document.tex
-
-# Keep auxiliary files for debugging
-nix run github:alexmill/texMini#pdflatex -- document.tex --no-clean
-
-# For local development, use nix shell
-nix shell github:alexmill/texMini          # bibliography support included
-# or for lightweight shell:
-nix shell github:alexmill/texMini#texMiniBasic
+nix run github:alexmill/texMini#latexmk -- document.tex
 ```
 
-## Smart Features
-
-### 🎯 Auto-Detection
-- **Single .tex file**: Automatically detected and compiled if no file specified
-- **Bibliography files**: Auto-detects `.bib` files and checks for proper references
-- **Smart warnings**: Alerts for missing or ambiguous files with helpful suggestions
-
-### 🧹 Intelligent Cleanup  
-- **Default behavior**: Keeps only `.tex`, `.bib`, and `.pdf` files after successful builds
-- **Failure preservation**: Auxiliary files retained on build errors for debugging
-- **Flexible control**: Use `--no-clean` flag or continuous mode (`-pvc`) to disable cleanup
-
-### Two Simple Levels
-
-texMini provides exactly two levels to cover 99% of LaTeX use cases:
-
-1. **Default** (`texMiniDefault`): Core LaTeX with math, graphics, hyperlinks, TikZ, **and bibliography support** (biblatex, biber, csquotes)
-2. **Basic** (`texMiniBasic`): Lightweight core LaTeX with math, graphics, hyperlinks, and TikZ only
-
-The default now includes bibliography support because most academic and professional documents need citations. Use the `-basic` variants only when you specifically need a lighter distribution.
-
-### VS Code LaTeX Workshop Integration
-
-For VS Code integration, choose the appropriate level and configure LaTeX Workshop:
-
-```json
-{
-  "latex-workshop.latex.tools": [
-    {
-      "name": "texmini",
-      "command": "nix",
-      "args": [
-        "run",
-        "github:alexmill/texMini#latexmk",
-        "--",
-        "-pdf",
-        "-interaction=nonstopmode",
-        "-file-line-error",
-        "%DOC%"
-      ]
-    },
-    {
-      "name": "texmini-basic",
-      "command": "nix",
-      "args": [
-        "run",
-        "github:alexmill/texMini#latexmk-basic",
-        "--",
-        "-pdf", 
-        "-interaction=nonstopmode",
-        "-file-line-error",
-        "%DOC%"
-      ]
-    }
-  ],
-  "latex-workshop.latex.recipes": [
-    {
-      "name": "texMini (with Bibliography)",
-      "tools": ["texmini"]
-    },
-    {
-      "name": "texMini Basic (Lightweight)", 
-      "tools": ["texmini-basic"]
-    }
-  ]
-}
-```
-
-## Auto-Detection Examples
-
-### Single File Projects
-```bash
-# If directory contains only "thesis.tex":
-nix run github:alexmill/texMini#pdflatex
-# → Auto-detects and compiles thesis.tex (with bibliography support)
-
-# If directory contains "paper.tex" and "refs.bib":
-nix run github:alexmill/texMini#pdflatex
-# → Auto-detects paper.tex, detects bibliography usage,
-#   automatically processes refs.bib if referenced in the document
-```
-
-### Multiple File Scenarios
-```bash
-# Directory with "intro.tex", "main.tex", "conclusion.tex":
-nix run github:alexmill/texMini#pdflatex
-# → Error: Multiple .tex files found, please specify which to compile
-
-nix run github:alexmill/texMini#pdflatex -- main.tex
-# → Compiles main.tex explicitly
-```
-
-### Bibliography Auto-Detection
-```bash
-# Document with \usepackage{biblatex} or \bibliography{} commands:
-nix run github:alexmill/texMini#pdflatex -- paper.tex
-# → Automatically detects and processes bibliography
-# → If single .bib file found, checks if it's referenced
-# → Warns about missing references or multiple .bib files
-```
-
-### Command-Line File Specification
-
-texMini supports both explicit file specification and smart auto-detection:
-
-#### Explicit File Specification (Recommended)
-```bash
-# Specify .tex file and single .bib file
-nix run github:alexmill/texMini -- paper.tex refs.bib
-
-# Multiple bibliography files
-nix run github:alexmill/texMini -- thesis.tex refs.bib methods.bib
-
-# Only .tex file (auto-detects .bib if unambiguous)  
-nix run github:alexmill/texMini -- paper.tex
-
-# Mix with latexmk options
-nix run github:alexmill/texMini -- paper.tex refs.bib -pvc    # continuous preview
-nix run github:alexmill/texMini -- paper.tex --no-clean      # keep aux files
-```
-
-#### Auto-Detection (Convenience)
-```bash
-# Full auto-detection (works when single .tex file present)
-nix run github:alexmill/texMini
-```
-
-#### Error Handling
-The system provides helpful feedback:
-- **Missing .bib files**: Error if explicitly specified file doesn't exist
-- **Unreferenced .bib files**: Warning if .bib file isn't cited in the document
-- **Multiple candidates**: Clear guidance when auto-detection is ambiguous
-
-## Usage Patterns
-
-### One-off Compilation
-Use `nix run` for quick compilation without entering a shell:
-```bash
-# Auto-detect single .tex file in current directory
-nix run github:alexmill/texMini#latexmk
-
-# Or specify explicitly
-nix run github:alexmill/texMini#latexmk -- -pdf document.tex
-```
-
-### Development Shell
-Use `nix shell` for interactive development where you'll run multiple commands:
-```bash
-# Default shell with bibliography support
-nix shell github:alexmill/texMini
-# Now you have latexmk available in your PATH
-latexmk -pdf document.tex
-
-# For lightweight shell without bibliography
-nix shell github:alexmill/texMini#texMiniBasic
-latexmk -pdf simple-document.tex
-```
-
-## Cleanup Behavior
-
-texMini features intelligent cleanup that adapts to your workflow:
-
-### Default Cleanup (Recommended)
-After successful compilation, only essential files remain:
-- **✅ Kept**: `.tex` (source), `.bib` (bibliography), `.pdf` (output)  
-- **🗑️ Removed**: `.aux`, `.log`, `.bbl`, `.bcf`, `.blg`, `.fls`, `.fdb_latexmk`, `.nav`, `.out`, `.snm`, `.toc`, `.vrb`, `.run.xml`
+The `-basic` variants use a smaller package set. The direct engine variants omit `latexmk`; `latexmk-basic` keeps `latexmk` when build orchestration matters more than minimum runtime size. Nix latexmk wrappers are shell-only, so the reproducible paths do not carry texMini's Python CLI runtime.
 
 ```bash
-# These all clean up automatically after successful builds:
-nix run github:alexmill/texMini#pdflatex -- thesis.tex
-nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
+nix run github:alexmill/texMini#pdflatex-basic -- simple.tex
 ```
 
-### When Cleanup is Disabled
-- **Build failures**: Auxiliary files preserved for debugging
-- **Continuous mode**: `latexmk -pvc` automatically disables cleanup
-- **Manual override**: `--no-clean` flag or `TEXMINI_AUTO_CLEAN=false`
+`pdflatex-basic` is intended for simple documents that do not need bibliography processing, hyperlinks, color, TikZ, or multiple compile passes.
+
+### Docker
 
 ```bash
-# Keep all files for debugging
-nix run github:alexmill/texMini#pdflatex -- document.tex --no-clean
-
-# Continuous preview mode (cleanup auto-disabled)
-nix run github:alexmill/texMini#latexmk -- -pdf -pvc document.tex
+docker build -t texmini .
+docker run --rm -v "$PWD:/work" texmini document.tex
 ```
 
-## Features
+The Docker image is built from the Nix package closure. For documents that do not need bibliography packages, build the smaller basic image:
 
-- **🚀 Ultra-lean**: ~41MB base installation with essential packages
-- **🎯 Auto-detection**: Automatically finds single `.tex` and `.bib` files when not specified
-- **📝 Explicit specification**: Support for multiple `.tex` and `.bib` files via command line
-- **🧠 Smart warnings**: Clear error messages for ambiguous, missing, or unreferenced files  
-- **🧹 Intelligent cleanup**: Keeps only `.tex`, `.bib`, and `.pdf` files after successful builds
-- **📁 Filename-agnostic**: Works with any document name and cleans corresponding auxiliary files
-- **⚡ Fast**: Pre-built variants for common use cases (basic, bibliography)
-- **🔄 Compatible**: Works with all latexmk options and compilation modes (pdflatex, lualatex, xelatex)
-- **📦 Reproducible**: Pinned nixpkgs for consistent builds across machines
-- **🛑 Debug-friendly**: Preserves auxiliary files on build failures or when explicitly requested
-- **🌐 Zero-install**: Run directly from GitHub without local installation
-
-## Smart Cleanup Details
-
-texMini's cleanup system is designed to be helpful without getting in your way:
-
-### What Gets Cleaned
-After **successful** compilation, these auxiliary files are automatically removed:
-- `.aux` (cross-references)
-- `.log` (compilation log) 
-- `.bbl` (bibliography)
-- `.bcf` (biblatex control)
-- `.blg` (bibliography log)
-- `.fls` (file list)
-- `.fdb_latexmk` (latexmk database)
-- `.nav`, `.out`, `.snm`, `.toc`, `.vrb` (beamer/navigation)
-- `.run.xml` (biblatex metadata)
-
-### What's Always Kept
-- `.tex` (your source files)
-- `.bib` (bibliography databases)
-- `.pdf` (compiled output)
-- Any files not recognized as auxiliary
-
-### Cleanup Examples
 ```bash
-# Before compilation: thesis.tex, refs.bib
-nix run github:alexmill/texMini#pdflatex-biblio -- thesis.tex
-# After: thesis.tex, refs.bib, thesis.pdf (all .aux, .log, etc. removed)
-
-# With multiple documents:
-nix run github:alexmill/texMini#pdflatex -- chapter1.tex  
-# Cleans chapter1.aux, chapter1.log, etc. (leaves other files untouched)
-
-# Debug mode:
-nix run github:alexmill/texMini#pdflatex -- thesis.tex --no-clean
-# All auxiliary files preserved for inspection
+docker build --build-arg NIX_TARGET=pdflatex-basic -t texmini-basic .
+docker run --rm -v "$PWD:/work" texmini-basic simple.tex
 ```
 
-## Available Commands
+If you build images through Nix, use `.#docker` for the default image and `.#docker-basic` for the smaller image:
 
-texMini provides focused command variants for different needs:
-
-### Basic LaTeX (no bibliography)
 ```bash
-# PDF output with pdflatex (most common)
-nix run github:alexmill/texMini#pdflatex -- document.tex
-
-# Alternative engines
-nix run github:alexmill/texMini#lualatex -- document.tex  # Unicode & modern fonts
-nix run github:alexmill/texMini#xelatex -- document.tex   # System fonts
-
-# Full latexmk control (recommended for complex builds)
-nix run github:alexmill/texMini#latexmk -- -pdf -pvc document.tex
+nix build .#docker
+nix build .#docker-basic
 ```
 
-### Bibliography Support
+### Zig
+
 ```bash
-# Includes biblatex, biber, and csquotes
-nix run github:alexmill/texMini#pdflatex-biblio -- paper.tex
-nix run github:alexmill/texMini#lualatex-biblio -- paper.tex  
-nix run github:alexmill/texMini#xelatex-biblio -- paper.tex
-nix run github:alexmill/texMini#latexmk-biblio -- -pdf paper.tex
+zig build install --prefix ~/.local
+~/.local/bin/texmini document.tex
 ```
 
-### Development Shells
+### Homebrew
+
 ```bash
-# Enter a shell with basic LaTeX tools
-nix shell github:alexmill/texMini#texMiniBasic
-
-# Enter a shell with bibliography support  
-nix shell github:alexmill/texMini#texMiniBiblio
-```
-## Advanced Usage
-
-### Using in Your Own Flake
-
-```nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    texMini.url = "github:alexmill/texMini";
-  };
-  
-  outputs = { self, nixpkgs, texMini }:
-    nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-darwin" "x86_64-darwin" ] (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-      in {
-        devShells.default = pkgs.mkShell {
-          buildInputs = [ 
-            texMini.packages.${system}.texMiniBasic
-            # or texMini.packages.${system}.texMiniBiblio
-          ];
-        };
-      });
-}
+brew tap alexmill/texmini https://github.com/alexmill/texMini
+brew install alexmill/texmini/texmini
+texmini document.tex
 ```
 
-## What's Included
+The Homebrew formula depends on Python and lets texMini download TinyTeX on demand.
 
-### Base Minimal Set
-- **Core**: `scheme-infraonly`, `latex-bin`, `latexmk`
-- **Math**: `amsmath`, `amsfonts`, `amscls`  
-- **Essential**: `geometry`, `hyperref`, `xcolor`, `graphics`
-- **Language**: `babel` (basic multilingual support)
-- **Graphics**: `pgf` (TikZ), `framed`
-- **Dependencies**: Common packages needed by the above
+## Usage
 
-### Pre-configured Additions
-- **texMiniBiblio**: `biblatex`, `biber`, `csquotes`
+```bash
+texmini [install-tinytex] [--engine pdflatex|lualatex|xelatex|latexmk] [OPTIONS] [document.tex] [refs.bib ...]
+```
 
-## Common Use Cases
+Examples:
 
-Here are some common packages you might need beyond the base installation:
+```bash
+# Compile an explicit document.
+texmini paper.tex
 
-- **Document classes**: `beamer`, `memoir`, `koma-script`, `moderncv`
-- **Advanced math**: `mathtools`, `amsthm`, `thmtools`, `physics`
-- **Tables**: `booktabs`, `longtable`, `array`, `tabularx`
-- **Code listings**: `listings`, `minted`, `fvextra`
-- **Advanced graphics**: `tikz-cd`, `pgfplots`, `circuitikz`, `forest`
-- **Typography**: `microtype`, `fontspec`, `unicode-math`, `polyglossia`
+# Compile with an explicit bibliography file.
+texmini paper.tex refs.bib
 
-To use packages beyond the base set, you can create your own flake that extends texMini with additional packages.
+# Use LuaLaTeX.
+texmini --engine lualatex paper.tex
 
-## Package Discovery
+# Keep auxiliary files.
+texmini --no-clean paper.tex
 
-To find TeX Live package names:
-- Search [CTAN](https://www.ctan.org/pkg) 
-- Use `tlmgr search --global <package>` in any TeX Live installation
-- Check the [TeX Live package database](https://tug.org/texlive/pkgcontrib.html)
+# Continuous preview with latexmk.
+texmini --backend latexmk -pvc paper.tex
+```
 
-## Size Comparison
+Options:
 
-How does texMini compare to other LaTeX distributions?
+- `--engine pdflatex|lualatex|xelatex|latexmk`: choose the LaTeX engine.
+- `--no-clean`: keep auxiliary files after a successful build.
+- `--no-install`: disable TinyTeX package autoinstall.
+- `-pvc`: pass continuous-preview mode to `latexmk` and disable cleanup.
+- `--version`: print the texMini version.
 
-| Distribution | Base Size | Notes |
-|--------------|-----------|-------|
-| **texMini** | **~41MB** | This project - ultra-minimal but complete |
-| TinyTeX | ~200MB | R-focused minimal TeX Live |
-| MiKTeX Basic | ~200MB | Windows-focused basic installation |
-| BasicTeX (MacTeX) | ~100MB | macOS minimal TeX Live subset |
-| TeX Live Scheme-Basic | ~300MB | Official TeX Live basic scheme |
-| TeX Live Full | ~5-7GB | Complete TeX Live installation |
+Optional setup command:
 
-**texMini achieves 10x size reduction** compared to other minimal distributions while maintaining full LaTeX functionality through smart on-demand package loading.
+- `install-tinytex`: download and extract TinyTeX into `~/.texmini/TinyTeX` before the first compile. This is useful for prefetching, but normal builds do it automatically when needed.
 
+Advanced backend override:
+
+- `--backend auto`: use existing `latexmk` when available, otherwise use managed TinyTeX. This is the default.
+- `--backend direct`: run the selected TeX engine once. The smallest Nix and Docker wrappers implement the same direct behavior in shell to avoid a Python runtime closure.
+- `--backend latexmk`: force `latexmk` from `PATH`.
+- `--backend tinytex`: force managed TinyTeX.
+
+## TinyTeX Autoinstall
+
+The managed TinyTeX backend starts from TinyTeX-0. It bootstraps `latex-bin`, `latexmk`, `metafont`, and `mfware`, then installs missing TeX Live packages only when texMini owns the target tree.
+
+When a TinyTeX build fails, texMini scans the document log for missing TeX files, supplements that list with source-level package files that `kpsewhich` reports missing from the managed TinyTeX tree, resolves common files from a built-in seed map before falling back to `tlmgr search --global --file`, caches mappings in `~/.texmini/package-map.json`, installs newly needed packages in one `tlmgr install ...` command, and retries the build.
+
+Autoinstall does not run for `--backend latexmk`, Nix, or Docker. Those paths use their existing TeX closure and summarize missing files from the `.log` on failed builds without mutating the TeX installation.
+
+Disable document-driven package autoinstall. A new TinyTeX-0 tree still needs its one-time core bootstrap:
+
+```bash
+texmini --backend tinytex --no-install document.tex
+TEXMINI_AUTO_INSTALL=false texmini document.tex
+```
+
+## Bibliography Handling
+
+texMini checks the selected `.tex` file for common bibliography commands:
+
+- `\usepackage{biblatex}`
+- `\bibliography{...}`
+- `\addbibresource{...}`
+
+If bibliography usage is detected, texMini reports what it found and warns when explicitly provided `.bib` files are missing or not referenced. When one `.bib` file is present in the working directory, texMini reports it as the detected bibliography file.
+
+The default Nix package includes `biblatex`, `biber`, and `csquotes`. The managed backend installs them only when the document needs them.
+
+## Cleanup
+
+After a successful build, texMini keeps the source and output files and removes common LaTeX auxiliaries.
+
+Kept:
+
+- `.tex`
+- `.bib`
+- `.pdf`
+
+Removed:
+
+- `.aux`
+- `.bbl`
+- `.bcf`
+- `.blg`
+- `.fls`
+- `.fdb_latexmk`
+- `.log`
+- `.nav`
+- `.out`
+- `.snm`
+- `.toc`
+- `.vrb`
+- `.run.xml`
+
+Cleanup is skipped when the build fails, when `--no-clean` is passed, or when continuous preview mode is used.
+
+## Environment
+
+- `TEXMINI_BACKEND`: default backend. Defaults to `auto`.
+- `TEXMINI_ENGINE`: default engine.
+- `TEXMINI_AUTO_CLEAN=false`: disable cleanup.
+- `TEXMINI_AUTO_INSTALL=false`: disable TinyTeX package autoinstall.
+- `TEXMINI_TINYTEX_ROOT`: TinyTeX installation directory. Defaults to `~/.texmini/TinyTeX`.
+- `TEXMINI_TINYTEX_BUNDLE`: TinyTeX release bundle. Defaults to `TinyTeX-0`; use `TinyTeX-1` for a faster first build.
+- `TEXMINI_PACKAGE_MAP`: package mapping cache path. Defaults to `~/.texmini/package-map.json`.
+
+## Tests
+
+Run both local test suites:
+
+```bash
+uv run python -m unittest discover -s tests -v
+npm test
+npm run pack:check
+```
+
+## Included TeX Live Packages
+
+The Nix package has two package sets.
+
+Default:
+
+- Core LaTeX: `scheme-infraonly`, `latex-bin`, `latexmk`
+- Math and fonts: `amsmath`, `amsfonts`, `amscls`, `l3packages`, `lm`, `metafont`, `mfware`
+- Common document packages: `geometry`, `hyperref`, `xcolor`, `graphics`, `babel`, `ec`, `epstopdf-pkg`, `framed`
+- Graphics: `pgf`
+- Bibliography: `biblatex`, `biber`, `csquotes`
+
+Basic direct:
+
+- Core LaTeX: `scheme-infraonly`, `latex-bin`
+- Math: `amsmath`, `amsfonts`, `amscls`
+- Layout: `geometry`
+
+Basic with latexmk adds `latexmk` to that package set.
 
 ## Troubleshooting
 
-### Common Issues
+No `.tex` file found:
 
-**Q: No .tex file found**
 ```bash
-# Error: No .tex files found in current directory
-# Solution: Create a .tex file or specify the path
-nix run github:alexmill/texMini#pdflatex -- /path/to/document.tex
+texmini document.tex
 ```
 
-**Q: Multiple .tex files found**
+Multiple `.tex` files found:
+
 ```bash
-# Error: Multiple .tex files found: main.tex intro.tex conclusion.tex
-# Solution: Specify which file to compile
-nix run github:alexmill/texMini#pdflatex -- main.tex
+texmini main.tex
 ```
 
-**Q: Bibliography not working**
+Use a different TinyTeX location:
+
 ```bash
-# Warning: Bibliography commands found but no .bib files found
-# Solution: Create a .bib file or use basic variant instead
-nix run github:alexmill/texMini#pdflatex -- document.tex  # if no bibliography needed
+TEXMINI_TINYTEX_ROOT="$PWD/.tinytex" texmini install-tinytex
+TEXMINI_TINYTEX_ROOT="$PWD/.tinytex" texmini document.tex
 ```
 
-**Q: Bibliography file not found**
+Use an existing TeX installation:
+
 ```bash
-# Error: Specified .bib file does not exist: missing.bib
-# Solution: Check the filename and path
-ls *.bib  # List available .bib files
-nix run github:alexmill/texMini -- paper.tex refs.bib  # Use correct filename
+texmini --backend latexmk document.tex
 ```
 
-**Q: Warning about unreferenced bibliography**
+Keep logs for debugging:
+
 ```bash
-# Warning: refs.bib is not referenced in document.tex
-# This means your .tex file doesn't cite anything from refs.bib
-# Solution: Either remove the .bib file or add citations like \cite{key}
+texmini --no-clean document.tex
 ```
-
-**Q: Multiple bibliography files not working**
-```bash
-# Make sure all .bib files exist and are referenced:
-nix run github:alexmill/texMini -- thesis.tex refs.bib methods.bib
-# Each .bib file should contain citations used in your document
-```
-
-**Q: Want to keep auxiliary files for debugging**
-```bash
-# Use --no-clean flag:
-nix run github:alexmill/texMini#pdflatex -- document.tex --no-clean
-```
-
-**Q: VS Code integration not working**
-- Ensure you're using the correct command variants in your LaTeX Workshop settings
-- Check that the file paths in your VS Code config are correct
-- Verify the LaTeX Workshop extension is installed and enabled
-
-**Q: Slow first run**
-- texMini downloads ~41MB on first use - subsequent runs are cached by Nix
-- Use `nix shell` for development sessions to avoid repeated downloads
-
-**Q: Missing packages**
-- texMini focuses on core functionality to stay minimal
-- For additional packages, create your own flake that extends texMini
-- Most documents work with the provided basic or bibliography variants
-
-## Why texMini?
-
-- **Size**: Standard TeX Live is 5+ GB, texMini is just ~41MB
-- **Speed**: Faster downloads and builds
-- **Intelligence**: Auto-detects files and provides helpful error messages
-- **Cleanliness**: Smart cleanup keeps your workspace organized  
-- **Simplicity**: Two focused variants cover most use cases
-- **Reproducible**: Pinned dependencies, consistent across machines
-- **Zero-install**: Run directly from GitHub with `nix run`

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "texmini"
+version = "0.1.0"
+description = "Ultra-lean LaTeX command wrapper with bibliography detection and cleanup."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Alex Mill" }]
+keywords = ["latex", "tex", "latexmk", "bibliography"]
+
+[tool.setuptools]
+script-files = ["bin/texmini"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

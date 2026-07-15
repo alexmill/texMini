@@ -1,0 +1,4 @@
+*
+!Dockerfile
+!flake.lock
+!flake.nix
