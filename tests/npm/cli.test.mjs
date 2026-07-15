@@ -9,6 +9,7 @@ import {
   TINYTEX_BOOTSTRAP_PACKAGES,
   bootstrapTinytex,
   ensureTinytexEngine,
+  latestTinytexAsset,
   packageFromTlmgrSearch,
   parseArgs,
   resolveTinytexPackages,
@@ -61,6 +62,24 @@ test("TinyTeX platform selection distinguishes glibc, musl, and ARM64", () => {
   assert.equal(tinytexPlatformKey("linux", "x64", { header: {} }), "linuxmusl-x86_64");
   assert.equal(tinytexPlatformKey("linux", "arm64", { header: {} }), "linux-arm64");
   assert.equal(tinytexPlatformKey("darwin", "arm64", { header: {} }), "darwin");
+});
+
+test("release lookup authenticates when GitHub provides a token", async () => {
+  let requestOptions;
+  const assetName = `TinyTeX-0-${tinytexPlatformKey()}-test.tar.xz`;
+  const asset = await latestTinytexAsset(
+    { GITHUB_TOKEN: "actions-token", TEXMINI_TINYTEX_BUNDLE: "TinyTeX-0" },
+    async (_url, options) => {
+      requestOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ assets: [{ name: assetName, browser_download_url: "https://example.test/archive" }] }),
+      };
+    },
+  );
+
+  assert.equal(requestOptions.headers.authorization, "Bearer actions-token");
+  assert.deepEqual(asset, [assetName, "https://example.test/archive", null]);
 });
 
 test("archive validation allows internal links and rejects paths outside TinyTeX", () => {

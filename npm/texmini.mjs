@@ -340,8 +340,10 @@ export function runCommand(args, { env = process.env, capture = false, quietStde
 export async function latestTinytexAsset(env = process.env, fetchImpl = fetch) {
   const bundle = tinytexBundle(env);
   const prefix = `${bundle}-${tinytexPlatformKey()}-`;
+  const headers = { "user-agent": "texmini" };
+  if (env.GITHUB_TOKEN) headers.authorization = `Bearer ${env.GITHUB_TOKEN}`;
   const response = await fetchImpl(TINYTEX_RELEASE_API, {
-    headers: { "user-agent": "texmini" },
+    headers,
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new TexMiniError(`Error: TinyTeX release lookup failed with HTTP ${response.status}.`);

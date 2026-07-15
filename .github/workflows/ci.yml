@@ -2,8 +2,12 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   npm:
@@ -48,6 +52,7 @@ jobs:
       - name: Compile with an empty managed runtime
         shell: bash
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
           TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
         run: |
