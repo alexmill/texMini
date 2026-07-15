@@ -19,7 +19,10 @@ test("npm package exposes one Node-native executable without lifecycle downloads
 });
 
 test("npm artifact contains only the launcher and required metadata", () => {
-  const result = spawnSync(npmCommand, ["pack", "--dry-run", "--json"], { encoding: "utf8" });
+  const result = spawnSync(npmCommand, ["pack", "--dry-run", "--json"], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
   assert.equal(result.status, 0, result.stderr);
   const report = JSON.parse(result.stdout)[0];
   const files = report.files.map((entry) => entry.path).sort();
@@ -60,10 +63,16 @@ test("packed artifact installs into an isolated global prefix", async (t) => {
   const prefix = join(directory, "prefix");
   const cache = join(directory, "cache");
   mkdirSync(pack);
-  const packResult = spawnSync(npmCommand, ["pack", "--pack-destination", pack], { encoding: "utf8" });
+  const packResult = spawnSync(npmCommand, ["pack", "--pack-destination", pack], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
   assert.equal(packResult.status, 0, packResult.stderr);
   const tarball = join(pack, readdirSync(pack).find((entry) => entry.endsWith(".tgz")));
-  const install = spawnSync(npmCommand, ["install", "--global", "--prefix", prefix, "--cache", cache, tarball], { encoding: "utf8" });
+  const install = spawnSync(npmCommand, ["install", "--global", "--prefix", prefix, "--cache", cache, tarball], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
   assert.equal(install.status, 0, install.stderr);
 
   const binary = process.platform === "win32" ? join(prefix, "texmini.cmd") : join(prefix, "bin", "texmini");
