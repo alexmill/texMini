@@ -2,7 +2,7 @@
 
 texMini compiles LaTeX documents with a private, managed TinyTeX installation. It detects bibliography usage, installs missing TeX Live packages, retries the build, and removes auxiliary files after a successful compile.
 
-texMini is distributed through PyPI for uv users and through GHCR as a multi-architecture Docker image.
+Install texMini directly from this repository with uv, or build its Docker image locally.
 
 ## uv
 
@@ -11,33 +11,29 @@ Requirements:
 - [uv](https://docs.astral.sh/uv/)
 - Perl, which TinyTeX requires for `tlmgr` and `latexmk`
 
-Install from PyPI:
+Install directly from GitHub:
 
 ```bash
-uv tool install texmini
+uv tool install git+https://github.com/alexmill/texMini
 texmini document.tex
 ```
 
 Run without keeping the tool installed:
 
 ```bash
-uvx texmini document.tex
+uvx --from git+https://github.com/alexmill/texMini texmini document.tex
 ```
 
 The first compile downloads TinyTeX-0 into `~/.texmini/TinyTeX`, bootstraps the core compiler, and installs packages required by the document. Later builds reuse that runtime.
 
-Install the current development snapshot from GitHub:
-
-```bash
-uv tool install git+https://github.com/alexmill/texMini
-```
-
 ## Docker
 
-Pull the published image:
+Clone the repository and build the image:
 
 ```bash
-docker pull ghcr.io/alexmill/texmini:latest
+git clone https://github.com/alexmill/texMini.git
+cd texMini
+docker build -t texmini .
 ```
 
 Compile from the current directory:
@@ -46,7 +42,7 @@ Compile from the current directory:
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$PWD:/work" \
-  ghcr.io/alexmill/texmini:latest document.tex
+  texmini document.tex
 ```
 
 The image contains TinyTeX-1 plus common math, layout, bibliography, hyperlink, color, and TikZ packages. It can compile the repository fixtures without network access:
@@ -55,7 +51,7 @@ The image contains TinyTeX-1 plus common math, layout, bibliography, hyperlink, 
 docker run --rm --network none \
   --user "$(id -u):$(id -g)" \
   -v "$PWD:/work" \
-  ghcr.io/alexmill/texmini:latest test.tex
+  texmini test.tex
 ```
 
 Uncommon packages are installed into the container at runtime when networking is available. Those additions are discarded with a `--rm` container.
@@ -174,16 +170,5 @@ docker run --rm --network none \
   -v "$PWD:/work" \
   texmini test.tex
 ```
-
-## Releases
-
-Production releases come from annotated stable-version tags. Update `texmini.__version__`, merge the change to `main`, wait for CI to pass, then create and push the matching tag:
-
-```bash
-git tag -a v0.2.0 -m "texMini 0.2.0"
-git push origin v0.2.0
-```
-
-GitHub Actions validates the tag, builds and tests both distributions, publishes to PyPI and GHCR, and creates the GitHub Release. PyPI publication waits for approval in the `pypi` GitHub environment.
 
 TinyTeX bundle benchmark methodology and raw results are in [`benchmarks`](benchmarks).
