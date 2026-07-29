@@ -33,14 +33,13 @@ def sample_overdispersed_count(rng: random.Random, mean: float, dispersion: floa
 
 
 class CliTest(unittest.TestCase):
-    def test_parse_args_defaults_to_auto_backend(self) -> None:
+    def test_parse_args_defaults_to_pdflatex(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            backend, engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file = cli.parse_args(
+            engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file = cli.parse_args(
                 ["paper.tex", "refs.bib"]
             )
 
-        self.assertEqual(backend, "auto")
-        self.assertEqual(engine, "texmini")
+        self.assertEqual(engine, "pdflatex")
         self.assertTrue(auto_clean)
         self.assertTrue(auto_install)
         self.assertEqual(latexmk_args, ["paper.tex"])
@@ -49,42 +48,27 @@ class CliTest(unittest.TestCase):
 
     def test_parse_args_disables_auto_install(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            backend, engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file = cli.parse_args(
+            engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file = cli.parse_args(
                 ["--no-install", "paper.tex"]
             )
 
-        self.assertEqual(backend, "auto")
-        self.assertEqual(engine, "texmini")
+        self.assertEqual(engine, "pdflatex")
         self.assertTrue(auto_clean)
         self.assertFalse(auto_install)
         self.assertEqual(latexmk_args, ["paper.tex"])
         self.assertEqual(bib_files, [])
         self.assertEqual(tex_file, "paper.tex")
 
-    def test_parse_args_accepts_direct_backend(self) -> None:
+    def test_parse_args_rejects_backend_selection(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            backend, engine, _, _, latexmk_args, _, tex_file = cli.parse_args(
-                ["--backend", "direct", "--engine", "pdflatex", "paper.tex"]
-            )
-
-        self.assertEqual(backend, "direct")
-        self.assertEqual(engine, "pdflatex")
-        self.assertEqual(latexmk_args, ["paper.tex"])
-        self.assertEqual(tex_file, "paper.tex")
+            with self.assertRaisesRegex(cli.TexMiniError, "always uses managed TinyTeX"):
+                cli.parse_args(["--backend", "latexmk", "paper.tex"])
 
     def test_parse_args_respects_auto_install_environment(self) -> None:
         with patch.dict(os.environ, {"TEXMINI_AUTO_INSTALL": "false"}, clear=True):
-            _, _, _, auto_install, _, _, _ = cli.parse_args(["paper.tex"])
+            _, _, auto_install, _, _, _ = cli.parse_args(["paper.tex"])
 
         self.assertFalse(auto_install)
-
-    def test_resolve_backend_prefers_existing_latexmk(self) -> None:
-        with patch("texmini.cli.executable_on_path", return_value="/usr/bin/latexmk"):
-            self.assertEqual(cli.resolve_backend("auto"), "latexmk")
-
-    def test_resolve_backend_uses_tinytex_without_latexmk(self) -> None:
-        with patch("texmini.cli.executable_on_path", return_value=None):
-            self.assertEqual(cli.resolve_backend("auto"), "tinytex")
 
     def test_tinytex_bundle_defaults_to_smallest_release(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -92,12 +76,21 @@ class CliTest(unittest.TestCase):
 
     def test_executable_on_path_finds_executable_without_shutil(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            executable = Path(directory) / "latexmk"
+            executable = Path(directory) / "perl"
             executable.write_text("#!/bin/sh\n", encoding="utf-8")
             executable.chmod(0o755)
 
             with patch.dict(os.environ, {"PATH": directory}):
-                self.assertEqual(cli.executable_on_path("latexmk"), str(executable))
+                self.assertEqual(cli.executable_on_path("perl"), str(executable))
+
+    def test_tinytex_install_requires_perl(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "TinyTeX"
+            with (
+                patch.dict(os.environ, {"PATH": ""}),
+                self.assertRaisesRegex(cli.TexMiniError, "Perl is required"),
+            ):
+                cli.install_tinytex_archive(root)
 
     def test_detect_tex_file_auto_detects_single_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -167,7 +160,7 @@ class CliTest(unittest.TestCase):
                     patch("texmini.cli.tex_source_requirements") as source_requirements,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 self.assertFalse(Path("paper.aux").exists())
@@ -540,7 +533,7 @@ class CliTest(unittest.TestCase):
                     ) as install,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(len(compile_run.call_args_list), 2)
@@ -575,7 +568,7 @@ class CliTest(unittest.TestCase):
                     patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 tinytex_env.assert_called_once_with(root)
@@ -623,7 +616,7 @@ class CliTest(unittest.TestCase):
                     patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(resolve.call_args.args[1], ["biblatex.sty", "csquotes.sty", "tikz.sty"])
@@ -655,7 +648,7 @@ class CliTest(unittest.TestCase):
                     patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(len(compile_run.call_args_list), 2)
@@ -694,7 +687,7 @@ class CliTest(unittest.TestCase):
                     patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 source_requirements.assert_called_once_with("paper.tex")
@@ -730,7 +723,7 @@ class CliTest(unittest.TestCase):
                 ):
                     output = StringIO()
                     with redirect_stdout(output):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(len(compile_run.call_args_list), 2)
@@ -770,7 +763,7 @@ class CliTest(unittest.TestCase):
                     patch("builtins.open", wraps=open) as opened,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, True, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, True, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(install.call_args.args[1], ["biber", "foopkg"])
@@ -810,7 +803,7 @@ class CliTest(unittest.TestCase):
                     patch("builtins.open", wraps=open) as opened,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.main(["--backend", "tinytex", "paper.tex"])
+                        result = cli.main(["paper.tex"])
 
                 self.assertEqual(result, 0)
                 self.assertEqual(install.call_args.args[1], ["biber"])
@@ -841,21 +834,13 @@ class CliTest(unittest.TestCase):
                     patch("texmini.cli.install_tinytex_packages") as install,
                 ):
                     with redirect_stdout(StringIO()):
-                        result = cli.run_tinytex_backend("latexmk", True, False, "paper.tex", ["paper.tex"])
+                        result = cli.run_tinytex_backend("pdflatex", True, False, "paper.tex", ["paper.tex"])
 
                 self.assertEqual(result.returncode, 1)
                 self.assertEqual(len(compile_run.call_args_list), 1)
                 install.assert_not_called()
             finally:
                 os.chdir(previous_cwd)
-
-    def test_latexmk_backend_never_runs_tlmgr_install(self) -> None:
-        with patch("texmini.cli.run_command", return_value=SimpleNamespace(returncode=1)) as run:
-            cli.run_latexmk_backend("latexmk", ["paper.tex"])
-
-        commands = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(commands, [["latexmk", "-pdf", "paper.tex"]])
-        self.assertFalse(any(command[0] == "tlmgr" for command in commands))
 
     def test_managed_tinytex_compile_cannot_stop_for_interactive_input(self) -> None:
         with patch("texmini.cli.run_command", return_value=SimpleNamespace(returncode=1)) as run:
@@ -866,7 +851,7 @@ class CliTest(unittest.TestCase):
             ["latexmk", "-pdf", "-interaction=nonstopmode", "paper.tex"],
         )
 
-    def test_latexmk_failure_reports_missing_files_without_installing(self) -> None:
+    def test_managed_failure_reports_missing_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             previous_cwd = Path.cwd()
             try:
@@ -874,31 +859,18 @@ class CliTest(unittest.TestCase):
                 Path("paper.tex").write_text("\\documentclass{article}\n", encoding="utf-8")
                 Path("paper.log").write_text("! LaTeX Error: File `missing.sty' not found.\n", encoding="utf-8")
 
-                with patch("texmini.cli.run_command", return_value=SimpleNamespace(returncode=1)) as run:
+                with patch(
+                    "texmini.cli.run_tinytex_backend",
+                    return_value=SimpleNamespace(returncode=1),
+                ):
                     output = StringIO()
                     with redirect_stdout(output):
-                        result = cli.main(["--backend", "latexmk", "paper.tex"])
+                        result = cli.main(["paper.tex"])
 
                 self.assertEqual(result, 1)
                 self.assertIn("Missing TeX files found: missing.sty", output.getvalue())
-                self.assertFalse(any(call.args[0][0] == "tlmgr" for call in run.call_args_list))
             finally:
                 os.chdir(previous_cwd)
-
-    def test_direct_backend_runs_engine_without_latexmk(self) -> None:
-        with patch("texmini.cli.run_command", return_value=SimpleNamespace(returncode=0)) as run:
-            cli.run_direct_backend("pdflatex", "paper.tex", ["-halt-on-error", "paper.tex"])
-
-        commands = [call.args[0] for call in run.call_args_list]
-        self.assertEqual(
-            commands,
-            [["pdflatex", "-interaction=nonstopmode", "-file-line-error", "-halt-on-error", "paper.tex"]],
-        )
-        self.assertFalse(any(command[0] == "latexmk" for command in commands))
-
-    def test_direct_backend_rejects_continuous_preview(self) -> None:
-        with self.assertRaises(cli.TexMiniError):
-            cli.run_direct_backend("pdflatex", "paper.tex", ["-pvc", "paper.tex"])
 
 
 if __name__ == "__main__":

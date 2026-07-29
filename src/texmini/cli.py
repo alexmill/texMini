@@ -5,8 +5,6 @@ from texmini import __version__
 
 
 ENGINE_ARGS = {
-    "texmini": ["-pdf"],
-    "latexmk": ["-pdf"],
     "pdflatex": ["-pdf"],
     "lualatex": ["-lualatex"],
     "xelatex": ["-xelatex"],
@@ -28,7 +26,6 @@ AUX_EXTENSIONS = [
     "run.xml",
 ]
 
-BACKENDS = {"auto", "direct", "latexmk", "tinytex"}
 TINYTEX_RELEASE_API = "https://api.github.com/repos/rstudio/tinytex-releases/releases/latest"
 DEFAULT_TINYTEX_BUNDLE = "TinyTeX-0"
 TINYTEX_BOOTSTRAP_PACKAGES = ["latex-bin", "latexmk", "metafont", "mfware"]
@@ -146,35 +143,22 @@ def source_uses_bibliography(source: str) -> bool:
 
 def print_help() -> None:
     print(
-        """Usage: texmini [install-tinytex] [--engine pdflatex|lualatex|xelatex|latexmk] [OPTIONS] [document.tex] [refs.bib ...]
+        """Usage: texmini [install-tinytex] [--engine pdflatex|lualatex|xelatex] [OPTIONS] [document.tex] [refs.bib ...]
 
 Compile a LaTeX document, detect bibliography files, and clean auxiliary files after successful builds.
 
 Options:
-  --engine ENGINE   Select pdflatex, lualatex, xelatex, or latexmk.
+  --engine ENGINE   Select pdflatex, lualatex, or xelatex.
   --no-clean        Keep auxiliary files after a successful build.
   --no-install      Disable TinyTeX package autoinstall.
   --version         Print the texMini version.
-  -pvc              Pass latexmk continuous-preview mode and disable cleanup.
-
-Advanced:
-  --backend BACKEND Select auto, direct, latexmk, or tinytex.
 
 All other arguments are passed through to latexmk."""
     )
 
 
-def normalized_engine(name: str) -> str:
-    command = os.path.basename(name)
-    for suffix in ("-basic", "-biblio"):
-        if command.endswith(suffix):
-            command = command[: -len(suffix)]
-    return command if command in ENGINE_ARGS else "texmini"
-
-
-def parse_args(argv: list[str]) -> tuple[str, str, bool, bool, list[str], list[str], str | None]:
-    backend = os.environ.get("TEXMINI_BACKEND", "auto")
-    engine = normalized_engine(os.environ.get("TEXMINI_ENGINE", os.path.basename(sys.argv[0])))
+def parse_args(argv: list[str]) -> tuple[str, bool, bool, list[str], list[str], str | None]:
+    engine = os.environ.get("TEXMINI_ENGINE", "pdflatex")
     auto_clean = os.environ.get("TEXMINI_AUTO_CLEAN", "true").lower() != "false"
     auto_install = os.environ.get("TEXMINI_AUTO_INSTALL", "true").lower() != "false"
     latexmk_args: list[str] = []
@@ -184,19 +168,11 @@ def parse_args(argv: list[str]) -> tuple[str, str, bool, bool, list[str], list[s
     i = 0
     while i < len(argv):
         arg = argv[i]
-        if arg == "--backend":
-            if i + 1 >= len(argv):
-                raise TexMiniError("Error: --backend requires auto, direct, latexmk, or tinytex.")
-            backend = argv[i + 1]
-            i += 2
-            continue
-        if arg.startswith("--backend="):
-            backend = arg.split("=", 1)[1]
-            i += 1
-            continue
+        if arg == "--backend" or arg.startswith("--backend="):
+            raise TexMiniError("Error: --backend is no longer supported; texMini always uses managed TinyTeX.")
         if arg == "--engine":
             if i + 1 >= len(argv):
-                raise TexMiniError("Error: --engine requires pdflatex, lualatex, xelatex, or latexmk.")
+                raise TexMiniError("Error: --engine requires pdflatex, lualatex, or xelatex.")
             engine = argv[i + 1]
             i += 2
             continue
@@ -213,10 +189,7 @@ def parse_args(argv: list[str]) -> tuple[str, str, bool, bool, list[str], list[s
             i += 1
             continue
         if arg == "-pvc":
-            auto_clean = False
-            latexmk_args.append(arg)
-            i += 1
-            continue
+            raise TexMiniError("Error: -pvc is not supported by managed TinyTeX.")
         if arg.endswith(".tex"):
             if tex_file is not None:
                 raise TexMiniError(f"Error: Multiple .tex files specified: {tex_file} and {arg}")
@@ -233,17 +206,9 @@ def parse_args(argv: list[str]) -> tuple[str, str, bool, bool, list[str], list[s
         i += 1
 
     if engine not in ENGINE_ARGS:
-        raise TexMiniError("Error: --engine must be pdflatex, lualatex, xelatex, or latexmk.")
-    if backend not in BACKENDS:
-        raise TexMiniError("Error: --backend must be auto, direct, latexmk, or tinytex.")
+        raise TexMiniError("Error: --engine must be pdflatex, lualatex, or xelatex.")
 
-    return backend, engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file
-
-
-def resolve_backend(backend: str) -> str:
-    if backend != "auto":
-        return backend
-    return "latexmk" if executable_on_path("latexmk") else "tinytex"
+    return engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file
 
 
 def executable_on_path(command: str) -> str | None:
@@ -429,6 +394,9 @@ def install_tinytex_archive(root: "Path") -> None:
     import urllib.request
     from pathlib import Path
 
+    if executable_on_path("perl") is None:
+        raise TexMiniError("Error: Perl is required to install and run TinyTeX. Install Perl and retry.")
+
     if (root / "bin").exists():
         if tinytex_bundle() == "TinyTeX-0":
             try:
@@ -472,22 +440,6 @@ def install_tinytex() -> int:
     except TexMiniError as error:
         print(error)
         return 1
-
-
-def run_latexmk_backend(engine: str, latexmk_args: list[str]) -> "subprocess.CompletedProcess[str]":
-    return run_command(["latexmk", *ENGINE_ARGS[engine], *latexmk_args], check=False)
-
-
-def run_direct_backend(engine: str, tex_file: str, latexmk_args: list[str]) -> "subprocess.CompletedProcess[str]":
-    if "-pvc" in latexmk_args:
-        raise TexMiniError("Error: direct backend does not support latexmk continuous-preview mode; use --backend latexmk.")
-    if engine in {"texmini", "latexmk"}:
-        engine = "pdflatex"
-    passthrough_args = [arg for arg in latexmk_args if arg != tex_file]
-    return run_command(
-        [engine, "-interaction=nonstopmode", "-file-line-error", *passthrough_args, tex_file],
-        check=False,
-    )
 
 
 def tex_log_requirements(log_path: "Path") -> tuple[list[str], list[str]]:
@@ -711,15 +663,14 @@ def install_tinytex_packages(
 
 
 def ensure_tinytex_engine(root: "Path", engine: str, env: dict[str, str]) -> None:
-    selected_engine = "pdflatex" if engine in {"texmini", "latexmk"} else engine
-    package = TINYTEX_ENGINE_PACKAGES.get(selected_engine)
-    if package is None or executable_on_path_with_env(selected_engine, env):
+    package = TINYTEX_ENGINE_PACKAGES.get(engine)
+    if package is None or executable_on_path_with_env(engine, env):
         return
 
     print(f"Installing TeX Live engine package: {package}")
     result = install_tinytex_packages(root, [package], env)
     if result.returncode != 0:
-        raise TexMiniError(f"Error: TinyTeX could not install the {selected_engine} engine.")
+        raise TexMiniError(f"Error: TinyTeX could not install the {engine} engine.")
 
 
 def executable_on_path_with_env(command: str, env: dict[str, str]) -> str | None:
@@ -738,10 +689,9 @@ def run_tinytex_compile(
     env: dict[str, str] | None = None,
 ) -> "subprocess.CompletedProcess[str]":
     env = tinytex_env(root) if env is None else env
-    tinytex_engine = "pdflatex" if engine in {"texmini", "latexmk"} else engine
     force_args = ["-g"] if force else []
     return run_command(
-        ["latexmk", *ENGINE_ARGS[tinytex_engine], "-interaction=nonstopmode", *force_args, *latexmk_args],
+        ["latexmk", *ENGINE_ARGS[engine], "-interaction=nonstopmode", *force_args, *latexmk_args],
         env=env,
         check=False,
     )
@@ -771,9 +721,6 @@ def run_tinytex_backend(
     tex_file: str,
     latexmk_args: list[str],
 ) -> "subprocess.CompletedProcess[str]":
-    if "-pvc" in latexmk_args:
-        raise TexMiniError("Error: TinyTeX backend does not support latexmk continuous-preview mode.")
-
     root = tinytex_root()
     install_tinytex_archive(root)
 
@@ -840,23 +787,15 @@ def main(argv: list[str] | None = None) -> int:
         return install_tinytex()
 
     try:
-        backend, engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file = parse_args(argv)
-        resolved_backend = resolve_backend(backend)
+        engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file = parse_args(argv)
         detected_tex_file = detect_tex_file(latexmk_args, tex_file)
         check_bibliography(detected_tex_file, bib_files)
-        if resolved_backend == "tinytex":
-            result = run_tinytex_backend(engine, auto_clean, auto_install, detected_tex_file, latexmk_args)
-        elif resolved_backend == "direct":
-            result = run_direct_backend(engine, detected_tex_file, latexmk_args)
-        else:
-            result = run_latexmk_backend(engine, latexmk_args)
+        result = run_tinytex_backend(engine, auto_clean, auto_install, detected_tex_file, latexmk_args)
     except TexMiniError as error:
         print(error)
         return 1
 
-    if result.returncode == 0 and auto_clean and resolved_backend in {"direct", "latexmk"}:
-        cleanup_auxiliary_files(detected_tex_file)
-    elif result.returncode != 0:
+    if result.returncode != 0:
         report_missing_tex_files(detected_tex_file)
         print("Build failed, keeping auxiliary files for debugging")
     return result.returncode
