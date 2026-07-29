@@ -9,17 +9,33 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  workflow-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Validate GitHub Actions workflows
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            -w /repo \
+            rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+
   python:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv run python -m unittest discover -s tests -v
-      - run: uv build --wheel
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - run: uv run --frozen python -m unittest discover -s tests -v
+      - run: uv build --sdist --wheel
+      - run: uvx --from twine==6.2.0 twine check dist/*
 
   uv-managed-smoke:
     strategy:
@@ -27,17 +43,22 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
-    env:
-      UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
-      UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
-      TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
-      TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv tool install --force .
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Install the built wheel
+        env:
+          UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
+          UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
+        run: |
+          uv build --wheel --out-dir "$RUNNER_TEMP/dist"
+          uv tool install --force "$RUNNER_TEMP"/dist/*.whl
       - name: Compile with a fresh managed runtime
-        shell: bash
+        env:
+          UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
+          UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
+          TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
+          TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
         run: |
           "$UV_TOOL_BIN_DIR/texmini" simple.tex
           test -s simple.pdf
@@ -45,24 +66,30 @@ jobs:
   docker:
     strategy:
       matrix:
-        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            arch: amd64
+          - platform: linux/arm64
+            arch: arm64
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build image
-        run: |
-          docker buildx build \
-            --platform "${{ matrix.platform }}" \
-            --load \
-            --tag texmini:test \
-            .
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: texmini:test
+          cache-from: type=gha,scope=ci-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=ci-${{ matrix.arch }}
       - name: Verify CLI
         run: docker run --rm texmini:test --version
       - name: Compile offline
-        if: matrix.platform == 'linux/amd64'
+        if: matrix.arch == 'amd64'
         run: |
           docker run --rm --network none \
             --user "$(id -u):$(id -g)" \
