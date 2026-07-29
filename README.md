@@ -138,7 +138,7 @@ Biber is installed automatically when a managed document uses `biblatex`.
 
 ## Cleanup
 
-Successful builds keep `.tex`, `.bib`, and `.pdf` files. Common LaTeX auxiliaries such as `.aux`, `.bbl`, `.bcf`, `.blg`, `.log`, `.toc`, and `.run.xml` are removed unless `--no-clean` is used. Failed builds retain their logs.
+Successful builds keep `.tex`, `.bib`, and `.pdf` files. Common LaTeX auxiliaries such as `.aux`, `.bbl`, `.bcf`, `.blg`, `.log`, `.toc`, `.run.xml`, and Metafont's `missfont.log` are removed unless `--no-clean` is used. Failed builds retain their logs.
 
 ## Environment
 

@@ -25,6 +25,7 @@ AUX_EXTENSIONS = [
     "vrb",
     "run.xml",
 ]
+FIXED_AUXILIARY_FILES = ["missfont.log"]
 
 TINYTEX_RELEASE_API = "https://api.github.com/repos/rstudio/tinytex-releases/releases/latest"
 DEFAULT_TINYTEX_BUNDLE = "TinyTeX-0"
@@ -278,6 +279,11 @@ def cleanup_auxiliary_files(tex_file: str) -> None:
     for extension in AUX_EXTENSIONS:
         try:
             os.unlink(f"{base}.{extension}")
+        except FileNotFoundError:
+            pass
+    for path in FIXED_AUXILIARY_FILES:
+        try:
+            os.unlink(path)
         except FileNotFoundError:
             pass
     print("Build successful, all auxiliary files cleaned (kept: .tex, .bib, .pdf)")

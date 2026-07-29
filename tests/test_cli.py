@@ -131,15 +131,24 @@ class CliTest(unittest.TestCase):
             base = Path(directory) / "paper"
             for suffix in ["tex", "pdf", "aux", "log", "run.xml"]:
                 base.with_suffix(f".{suffix}").write_text("", encoding="utf-8")
+            missfont_log = Path(directory) / "missfont.log"
+            missfont_log.write_text("", encoding="utf-8")
 
-            with redirect_stdout(StringIO()):
-                cli.cleanup_auxiliary_files(str(base.with_suffix(".tex")))
+            previous_cwd = Path.cwd()
+            try:
+                os.chdir(directory)
+                with redirect_stdout(StringIO()):
+                    cli.cleanup_auxiliary_files(str(base.with_suffix(".tex")))
+                    cli.cleanup_auxiliary_files(str(base.with_suffix(".tex")))
+            finally:
+                os.chdir(previous_cwd)
 
             self.assertTrue(base.with_suffix(".tex").exists())
             self.assertTrue(base.with_suffix(".pdf").exists())
             self.assertFalse(base.with_suffix(".aux").exists())
             self.assertFalse(base.with_suffix(".log").exists())
             self.assertFalse(base.with_suffix(".run.xml").exists())
+            self.assertFalse(missfont_log.exists())
 
     def test_run_tinytex_backend_uses_managed_latexmk_and_cleans(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
