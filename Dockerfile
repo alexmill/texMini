@@ -1,21 +1,63 @@
-FROM nixos/nix:latest AS build
+# syntax=docker/dockerfile:1.7
 
-ARG NIX_TARGET=default
+ARG PYTHON_IMAGE=python:3.12-slim-bookworm
 
+FROM ghcr.io/astral-sh/uv:0.11.20 AS uv
+
+FROM ${PYTHON_IMAGE} AS python-build
+
+COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
-COPY flake.nix flake.lock ./
-RUN nix build ".#${NIX_TARGET}" --extra-experimental-features "nix-command flakes"
-RUN mkdir -p /image/bin /image/nix/store /image/tmp /image/work \
-  && cp -a $(nix-store -qR result) /image/nix/store/ \
-  && find /image/nix/store -maxdepth 1 -name '*-texdoc' -exec rm -rf {} + \
-  && find /image/nix/store -type d \( -name doc -o -name man -o -name info \) -prune -exec rm -rf {} + \
-  && command_path="$(find "$(readlink -f result)/bin" -maxdepth 1 -type f -perm -111 | sort | head -n 1)" \
-  && ln -s "$command_path" /image/bin/texmini \
-  && bash_bin="$(find /image/nix/store -path '*/bin/bash' -type f | head -n 1)" \
-  && ln -s "${bash_bin#/image}" /image/bin/sh \
-  && chmod 1777 /image/tmp
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN uv build --wheel --out-dir /dist \
+  && uv venv /opt/texmini \
+  && uv pip install --python /opt/texmini/bin/python --no-cache /dist/texmini-*.whl
 
-FROM scratch
-COPY --from=build /image /
+FROM debian:bookworm-slim AS tinytex
+
+ARG TARGETARCH
+ARG TINYTEX_VERSION=2026.07
+ARG TINYTEX_AMD64_SHA256=b814b0370ea3f633fa5ce640ad74c3d1cdfa80cc4aa0d33893baf1467c4b35fe
+ARG TINYTEX_ARM64_SHA256=befcf452ed2fe07edea92c8b23e9e6977a6bfbffc15d7ce8bae2fd96a3d8eee5
+
+RUN apt-get update \
+  && apt-get install --yes --no-install-recommends ca-certificates curl perl xz-utils \
+  && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+  case "$TARGETARCH" in \
+    amd64) platform="linux-x86_64"; checksum="$TINYTEX_AMD64_SHA256" ;; \
+    arm64) platform="linux-arm64"; checksum="$TINYTEX_ARM64_SHA256" ;; \
+    *) echo "Unsupported Docker architecture: $TARGETARCH" >&2; exit 1 ;; \
+  esac; \
+  archive="TinyTeX-1-${platform}-v${TINYTEX_VERSION}.tar.xz"; \
+  curl --fail --location --retry 3 \
+    "https://github.com/rstudio/tinytex-releases/releases/download/v${TINYTEX_VERSION}/${archive}" \
+    --output "/tmp/${archive}"; \
+  echo "${checksum}  /tmp/${archive}" | sha256sum --check -; \
+  mkdir -p /opt; \
+  tar -xJf "/tmp/${archive}" -C /opt; \
+  if [ -d /opt/.TinyTeX ]; then mv /opt/.TinyTeX /opt/TinyTeX; fi; \
+  tex_bin="$(find /opt/TinyTeX/bin -mindepth 1 -maxdepth 1 -type d -print -quit)"; \
+  PATH="${tex_bin}:$PATH" tlmgr update --self; \
+  PATH="${tex_bin}:$PATH" tlmgr install \
+    geometry amsmath biblatex biber csquotes xcolor hyperref pgf framed; \
+  chmod -R a+rwX /opt/TinyTeX; \
+  rm "/tmp/${archive}"
+
+FROM ${PYTHON_IMAGE} AS runtime
+
+RUN apt-get update \
+  && apt-get install --yes --no-install-recommends ca-certificates fontconfig perl \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=python-build /opt/texmini /opt/texmini
+COPY --from=tinytex /opt/TinyTeX /opt/TinyTeX
+
+ENV HOME=/tmp \
+  PATH="/opt/texmini/bin:${PATH}" \
+  TEXMINI_PACKAGE_MAP=/tmp/texmini-package-map.json \
+  TEXMINI_TINYTEX_BUNDLE=TinyTeX-1 \
+  TEXMINI_TINYTEX_ROOT=/opt/TinyTeX
+
 WORKDIR /work
-ENTRYPOINT ["/bin/texmini"]
+ENTRYPOINT ["texmini"]

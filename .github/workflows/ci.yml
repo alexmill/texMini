@@ -10,20 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  npm:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm test
-      - run: npm run pack:check
-
   python:
     strategy:
       matrix:
@@ -33,29 +19,59 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv run python -m unittest discover -s tests -v
+      - run: uv build --wheel
 
-  npm-managed-smoke:
+  uv-managed-smoke:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    env:
+      UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
+      UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
+      TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
+      TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm pack --pack-destination "$RUNNER_TEMP"
-      - name: Install packed CLI
+      - uses: astral-sh/setup-uv@v6
+      - run: uv tool install --force .
+      - name: Compile with a fresh managed runtime
         shell: bash
-        run: npm install --global --prefix "$RUNNER_TEMP/texmini-prefix" "$RUNNER_TEMP"/*.tgz
-      - name: Compile with an empty managed runtime
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
-          TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
         run: |
-          export PATH="$RUNNER_TEMP/texmini-prefix/bin:$PATH"
-          texmini --backend tinytex simple.tex
+          "$UV_TOOL_BIN_DIR/texmini" simple.tex
           test -s simple.pdf
+
+  docker:
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        run: |
+          docker buildx build \
+            --platform "${{ matrix.platform }}" \
+            --load \
+            --tag texmini:test \
+            .
+      - name: Verify CLI
+        run: docker run --rm texmini:test --version
+      - name: Compile offline
+        if: matrix.platform == 'linux/amd64'
+        run: |
+          docker run --rm --network none \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            texmini:test simple.tex
+          docker run --rm --network none \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/work" \
+            texmini:test test.tex
+          test -s simple.pdf
+          test -s test.pdf
+          test "$(stat -c %u test.pdf)" = "$(id -u)"

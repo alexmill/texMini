@@ -23,6 +23,4 @@ The JSON result records the release archive size, cold compile time, three warm 
 
 Logical and allocated runtime sizes deduplicate hard links by device and inode. Allocated size uses filesystem block counts, so it represents disk usage rather than summing the apparent size of every directory entry.
 
-The repository README also reports separately measured wrapper installs, a clean `test.tex` first run, and fresh Docker builds. Those pathways use different prerequisites, so their acquisition, wrapper, TeX runtime, and execution measurements remain separate rather than being collapsed into one score.
-
 Use `--keep-workspaces` only for debugging; retained TeX trees are large and are ignored by Git.

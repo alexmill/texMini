@@ -236,12 +236,11 @@ def benchmark_bundle(bundle: str, fixtures: list[str], repeats: int, workspace: 
     env = {
         **os.environ,
         "PYTHONPATH": str(ROOT / "src"),
-        "TEXMINI_BACKEND": "tinytex",
         "TEXMINI_PACKAGE_MAP": str(package_map),
         "TEXMINI_TINYTEX_BUNDLE": bundle,
         "TEXMINI_TINYTEX_ROOT": str(runtime),
     }
-    command_prefix = [sys.executable, "-m", "texmini.cli", "--backend", "tinytex"]
+    command_prefix = [sys.executable, "-m", "texmini.cli"]
     cases: list[dict[str, object]] = []
 
     for fixture in fixtures:
