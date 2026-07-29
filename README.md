@@ -60,18 +60,26 @@ docker run --rm --network none \
 
 Uncommon packages are installed into the container at runtime when networking is available. Those additions are discarded with a `--rm` container.
 
-### Docker performance
+## How the CLI works
 
-Measured on macOS arm64 on 2026-07-29 with a no-cache build:
+The normal command is:
 
-| Image | Build time | Image size |
-| --- | ---: | ---: |
-| Direct TinyTeX-1 | 54.59s | 427.9 MiB |
-| Previous Nix closure | 73.80s | 474.3 MiB |
+```bash
+texmini paper.tex
+```
 
-The direct image built 26% faster and used 46.4 MiB less storage in this comparison.
+texMini then:
 
-## Usage
+1. Selects `paper.tex`, or auto-detects the source when the directory contains exactly one `.tex` file.
+2. Scans the source for bibliography commands and checks explicitly supplied `.bib` files.
+3. Installs the private TinyTeX runtime when it is not already present.
+4. Runs managed `latexmk` with `pdflatex`.
+5. If the build reports missing TeX files, resolves and installs their TeX Live packages, then retries.
+6. Writes `paper.pdf` beside the source and removes auxiliary files after a successful build.
+
+The same command is used after both uv and Docker installation. Docker already contains the TinyTeX runtime and common packages, so it normally begins at the compile step.
+
+## CLI reference
 
 ```text
 texmini [install-tinytex] [--engine pdflatex|lualatex|xelatex] [OPTIONS] [document.tex] [refs.bib ...]
@@ -85,6 +93,15 @@ Options:
 - `--version`: print the texMini version.
 
 Arguments not handled by texMini are passed to managed `latexmk`. Continuous preview mode is not supported.
+
+Examples:
+
+```bash
+texmini paper.tex
+texmini --engine lualatex paper.tex
+texmini --no-clean paper.tex
+texmini paper.tex references.bib
+```
 
 If the working directory contains exactly one `.tex` file, the filename may be omitted:
 
