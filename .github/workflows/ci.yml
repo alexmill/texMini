@@ -61,10 +61,12 @@ jobs:
           TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex"
+          mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex" "$RUNNER_TEMP/subdirectory/docs"
           cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/pdflatex/"
           cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/lualatex/"
           cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/xelatex/"
+          cp tests/fixtures/bibliography/bibliography.tex "$RUNNER_TEMP/subdirectory/docs/paper.tex"
+          cp tests/fixtures/bibliography/refs.bib "$RUNNER_TEMP/subdirectory/docs/"
           cd "$RUNNER_TEMP/engines/pdflatex"
           "$UV_TOOL_BIN_DIR/texmini" --engine pdflatex simple.tex
           test -s simple.pdf
@@ -79,6 +81,18 @@ jobs:
           cd "$RUNNER_TEMP/engines/xelatex"
           "$UV_TOOL_BIN_DIR/texmini" --engine xelatex simple.tex
           test -s simple.pdf
+          cd "$RUNNER_TEMP/subdirectory"
+          "$UV_TOOL_BIN_DIR/texmini" docs/paper.tex
+          test -s docs/paper.pdf
+          test -s docs/paper.bbl
+          test ! -e paper.pdf
+          test ! -e paper.log
+          subdirectory_output="$("$UV_TOOL_BIN_DIR/texmini" docs/paper.tex)"
+          printf '%s\n' "$subdirectory_output"
+          grep -q "docs/paper.pdf is up to date" <<< "$subdirectory_output"
+          "$UV_TOOL_BIN_DIR/texmini" --clean docs/paper.tex
+          test ! -e docs/paper.aux
+          test ! -e docs/paper.log
 
   docker:
     strategy:
