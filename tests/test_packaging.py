@@ -45,7 +45,7 @@ class PackagingTest(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "0.2.1")
+            self.assertEqual(version.stdout.strip(), "0.3.0")
 
             help_result = subprocess.run(
                 [str(bin_dir / "texmini"), "--help"],
