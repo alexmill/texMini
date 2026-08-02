@@ -88,7 +88,7 @@ def write_fixture(name: str, destination: Path) -> str:
     tex_file = destination / f"{name}.tex"
 
     if name == "simple":
-        shutil.copy2(ROOT / "simple.tex", tex_file)
+        shutil.copy2(ROOT / "tests" / "fixtures" / "simple" / "simple.tex", tex_file)
         return tex_file.name
 
     if name == "common":
@@ -132,8 +132,8 @@ The package sample is selected once from a fixed seed so repeated benchmark runs
                     [
                         f"@article{{{key},",
                         f"  title = {{Generated benchmark article {index}}},",
-                        f"  author = {{Author, Example and Collaborator, Sample}},",
-                        f"  journal = {{Benchmark Studies}},",
+                        "  author = {Author, Example and Collaborator, Sample},",
+                        "  journal = {Benchmark Studies},",
                         f"  year = {{{2000 + index % 25}}}",
                         "}",
                     ]

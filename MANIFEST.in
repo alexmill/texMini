@@ -1,0 +1,2 @@
+recursive-include benchmarks *.json *.md *.py
+recursive-include tests *.bib *.py *.tex
