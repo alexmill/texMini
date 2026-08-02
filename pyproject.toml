@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "texmini"
 dynamic = ["version"]
-description = "Ultra-lean LaTeX command wrapper with bibliography detection and cleanup."
+description = "Approachable LaTeX compiler with automatic TeX Live package installation."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

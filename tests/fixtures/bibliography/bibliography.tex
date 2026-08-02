@@ -13,7 +13,7 @@
 % Add a bibliography file
 \addbibresource{refs.bib}
 
-\title{texMini Test Document}
+\title{texMini Bibliography Fixture}
 \author{Test Author}
 \date{\today}
 
@@ -23,7 +23,7 @@
 
 \section{Introduction}
 
-This is a test document for texMini with bibliography support \cite{testwork2024}. Basic math: $a^2 + b^2 = c^2$
+This fixture exercises texMini's bibliography support \cite{testwork2024}. Basic math: $a^2 + b^2 = c^2$
 
 \section{Basic Math}
 
@@ -78,15 +78,15 @@ texMini includes pgf/tikz for creating graphics:
     % Draw a simple diagram
     \draw[thick, ->] (0,0) -- (3,0) node[anchor=north] {$x$};
     \draw[thick, ->] (0,0) -- (0,3) node[anchor=east] {$y$};
-    
+
     % Draw a function
     \draw[blue, thick, domain=0:2.5] plot (\x, {0.5*\x*\x});
     \node[blue] at (2, 2.5) {$y = \frac{1}{2}x^2$};
-    
+
     % Draw some points
     \fill[red] (1,0.5) circle (2pt);
     \fill[red] (2,2) circle (2pt);
-    
+
     \node[anchor=south] at (1,0.5) {$(1,0.5)$};
     \node[anchor=south] at (2,2) {$(2,2)$};
 \end{tikzpicture}

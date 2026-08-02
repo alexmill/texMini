@@ -19,6 +19,8 @@ Each TinyTeX bundle starts in a separate empty directory. Fixtures run in this o
 3. Ten packages sampled from a fixed seed.
 4. A Biber bibliography whose entry count follows a seeded gamma-Poisson model.
 
+The checked-in result records the original texMini 0.1.0 baseline. Generate a new timestamped result when comparing a later release; do not treat the historical measurement as current release performance.
+
 The JSON result records the release archive size, cold compile time, three warm runs, PDF size, package download payload reported by `tlmgr`, and runtime footprint before and after each fixture. The first fixture includes archive download and core bootstrap; later cold runs measure only packages newly needed by that fixture. Network payload excludes HTTP and repository-index overhead because those values are not exposed by `tlmgr`.
 
 Logical and allocated runtime sizes deduplicate hard links by device and inode. Allocated size uses filesystem block counts, so it represents disk usage rather than summing the apparent size of every directory entry.
