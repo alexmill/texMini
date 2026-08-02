@@ -71,6 +71,10 @@ class CliTest(unittest.TestCase):
         self.assertEqual(detected, "paper.tex")
         self.assertEqual(args, ["paper.tex"])
 
+    def test_detect_tex_file_rejects_missing_explicit_source(self) -> None:
+        with self.assertRaisesRegex(cli.TexMiniError, "missing.tex.*does not exist"):
+            cli.detect_tex_file(["missing.tex"], "missing.tex")
+
     def test_explicit_missing_bibliography_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "paper.tex"
@@ -98,6 +102,35 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(files, ["memoir.cls", "geometry.sty", "microtype.sty", "biblatex.sty"])
         self.assertEqual(packages, ["biber"])
+
+    def test_source_requirements_ignore_commented_directives(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text(
+                "\\documentclass{article}\n"
+                "% \\usepackage{minted}\n"
+                "\\usepackage{geometry}% \\usepackage{microtype}\n"
+                "Escaped percent: \\%\n",
+                encoding="utf-8",
+            )
+            files, packages = cli.tex_source_requirements(str(source))
+
+        self.assertEqual(files, ["article.cls", "geometry.sty"])
+        self.assertEqual(packages, [])
+        self.assertFalse(cli.source_uses_bibliography("% \\addbibresource{refs.bib}\n"))
+
+    def test_bibliography_discovery_uses_source_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source_directory = Path(directory) / "docs"
+            source_directory.mkdir()
+            source = source_directory / "paper.tex"
+            source.write_text("\\addbibresource{refs.bib}\n", encoding="utf-8")
+            (source_directory / "refs.bib").write_text("@book{x}\n", encoding="utf-8")
+            errors = io.StringIO()
+            with redirect_stderr(errors):
+                cli.check_bibliography(str(source), [])
+
+        self.assertEqual(errors.getvalue(), "")
 
     def test_log_requirements_extract_missing_file_font_and_biber(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -213,6 +246,7 @@ class CliTest(unittest.TestCase):
             for suffix in ("tex", "bib", "pdf", "aux", "bbl", "bcf-SAVE-ERROR", "log"):
                 (root / f"paper.{suffix}").write_text(suffix, encoding="utf-8")
             (root / "notes.txt").write_text("keep", encoding="utf-8")
+            (root / "missfont.log").write_text("diagnostic", encoding="utf-8")
 
             cli.cleanup_auxiliary_files(str(root / "paper.tex"))
 
@@ -224,6 +258,7 @@ class CliTest(unittest.TestCase):
             self.assertFalse((root / "paper.bbl").exists())
             self.assertFalse((root / "paper.bcf-SAVE-ERROR").exists())
             self.assertFalse((root / "paper.log").exists())
+            self.assertFalse((root / "missfont.log").exists())
 
     def test_document_warnings_filters_layout_chatter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -363,6 +398,38 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(outcome.returncode, 0)
         self.assertEqual(install.call_args.args[1], ["geometry"])
+
+    def test_backend_compiles_in_source_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._managed_root(directory)
+            source_directory = Path(directory) / "docs"
+            source_directory.mkdir()
+            source = source_directory / "paper.tex"
+            source.write_text("\\documentclass{article}\n", encoding="utf-8")
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+
+                def compile_document(_engine, arguments, _root, **options):
+                    self.assertEqual(arguments, ["paper.tex"])
+                    self.assertEqual(options["cwd"], Path("docs"))
+                    (source_directory / "paper.pdf").write_text("pdf", encoding="utf-8")
+                    return SimpleNamespace(returncode=0)
+
+                with (
+                    patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
+                    patch("texmini.cli.missing_tinytex_source_files", return_value=[]),
+                    patch("texmini.cli.run_tinytex_compile", side_effect=compile_document),
+                ):
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", True, False, "docs/paper.tex", ["docs/paper.tex"]
+                    )
+                    pdf_exists = (source_directory / "paper.pdf").is_file()
+            finally:
+                os.chdir(previous)
+
+        self.assertTrue(outcome.pdf_changed)
+        self.assertTrue(pdf_exists)
 
     def test_backend_continues_beyond_five_dependency_rounds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -516,6 +583,52 @@ class CliTest(unittest.TestCase):
         self.assertFalse(Path(directory, "paper.aux").exists())
         self.assertIn("paper.pdf is up to date", output.getvalue())
         self.assertIn("Removed auxiliary build files", output.getvalue())
+
+    def test_main_reports_warns_and_cleans_subdirectory_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                source_directory = Path("docs")
+                source_directory.mkdir()
+                (source_directory / "paper.tex").write_text("source", encoding="utf-8")
+                (source_directory / "paper.pdf").write_text("pdf", encoding="utf-8")
+                (source_directory / "paper.aux").write_text("state", encoding="utf-8")
+                (source_directory / "paper.log").write_text(
+                    "LaTeX Warning: There were undefined citations.\n", encoding="utf-8"
+                )
+                outcome = cli.BuildOutcome(0, 0.14, True)
+                output = io.StringIO()
+                errors = io.StringIO()
+                with (
+                    patch("texmini.cli.run_tinytex_backend", return_value=outcome),
+                    redirect_stdout(output),
+                    redirect_stderr(errors),
+                ):
+                    result = cli.main(["--clean", "docs/paper.tex"])
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(result, 0)
+        self.assertIn("Built docs/paper.pdf in 0.14s", output.getvalue())
+        self.assertIn("undefined citations", errors.getvalue())
+        self.assertFalse(Path(directory, "docs", "paper.aux").exists())
+        self.assertFalse(Path(directory, "docs", "paper.log").exists())
+
+    def test_main_rejects_missing_source_before_backend_setup(self) -> None:
+        output = io.StringIO()
+        errors = io.StringIO()
+        with (
+            patch("texmini.cli.run_tinytex_backend") as backend,
+            redirect_stdout(output),
+            redirect_stderr(errors),
+        ):
+            result = cli.main(["missing.tex"])
+
+        self.assertEqual(result, 1)
+        self.assertEqual(output.getvalue(), "")
+        self.assertIn("LaTeX source file 'missing.tex' does not exist", errors.getvalue())
+        backend.assert_not_called()
 
     def test_main_failure_reports_line_and_partial_pdf(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

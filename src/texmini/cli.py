@@ -153,6 +153,26 @@ def read_source_file(path: str) -> str:
     return cached[2]
 
 
+def strip_tex_comments(source: str) -> str:
+    uncommented: list[str] = []
+    for line in source.splitlines(keepends=True):
+        for index, character in enumerate(line):
+            if character != "%":
+                continue
+            preceding_backslashes = 0
+            cursor = index - 1
+            while cursor >= 0 and line[cursor] == "\\":
+                preceding_backslashes += 1
+                cursor -= 1
+            if preceding_backslashes % 2:
+                continue
+            line_ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+            line = f"{line[:index]}{line_ending}"
+            break
+        uncommented.append(line)
+    return "".join(uncommented)
+
+
 def missing_file_patterns():
     import re
 
@@ -205,6 +225,7 @@ def source_patterns():
 
 
 def source_uses_bibliography(source: str) -> bool:
+    source = strip_tex_comments(source)
     if "\\bibliography{" in source or "\\addbibresource{" in source:
         return True
     if "biblatex" not in source or "\\usepackage" not in source:
@@ -300,6 +321,8 @@ def executable_on_path(command: str) -> str | None:
 def detect_tex_file(latexmk_args: list[str], tex_file: str | None, reporter: Reporter | None = None) -> str:
     reporter = reporter or Reporter()
     if tex_file is not None:
+        if not Path(tex_file).is_file():
+            raise TexMiniError(f"Error: LaTeX source file '{tex_file}' does not exist.")
         return tex_file
 
     tex_files = sorted(entry.name for entry in os.scandir(os.getcwd()) if entry.is_file() and entry.name.endswith(".tex"))
@@ -323,7 +346,7 @@ def check_bibliography(tex_file: str, bib_files: list[str], reporter: Reporter |
     if not os.path.isfile(tex_path):
         return
 
-    source = read_source_file(tex_path)
+    source = strip_tex_comments(read_source_file(tex_path))
     if not source_uses_bibliography(source):
         return
 
@@ -336,7 +359,12 @@ def check_bibliography(tex_file: str, bib_files: list[str], reporter: Reporter |
                 reporter.warning(f"You may need to add \\addbibresource{{{bib_file}}} to your document.")
         return
 
-    detected_bib_files = sorted(entry.name for entry in os.scandir(os.getcwd()) if entry.is_file() and entry.name.endswith(".bib"))
+    source_directory = Path(tex_path).parent
+    detected_bib_files = sorted(
+        entry.name
+        for entry in os.scandir(source_directory)
+        if entry.is_file() and entry.name.endswith(".bib")
+    )
     if len(detected_bib_files) == 1:
         bib_file = detected_bib_files[0]
         if bib_file not in source:
@@ -355,9 +383,10 @@ def cleanup_auxiliary_files(tex_file: str) -> None:
             os.unlink(f"{base}.{extension}")
         except FileNotFoundError:
             pass
+    source_directory = Path(base).parent
     for path in FIXED_AUXILIARY_FILES:
         try:
-            os.unlink(path)
+            os.unlink(source_directory / path)
         except FileNotFoundError:
             pass
 
@@ -605,7 +634,7 @@ def tex_source_requirements(tex_file: str) -> tuple[list[str], list[str]]:
     if not os.path.isfile(tex_path):
         return [], []
 
-    source = read_source_file(tex_path)
+    source = strip_tex_comments(read_source_file(tex_path))
     found: list[str] = []
     seen: set[str] = set()
     biblatex_package_pattern, documentclass_pattern, package_pattern, package_file_pattern = source_patterns()
@@ -784,6 +813,7 @@ def run_tinytex_compile(
     force: bool = False,
     env: dict[str, str] | None = None,
     reporter: Reporter | None = None,
+    cwd: "Path | None" = None,
 ) -> "subprocess.CompletedProcess[str]":
     env = tinytex_env(root) if env is None else env
     force_args = ["-g"] if force else []
@@ -791,6 +821,7 @@ def run_tinytex_compile(
         ["latexmk", *ENGINE_ARGS[engine], "-interaction=nonstopmode", "-file-line-error", *force_args, *latexmk_args],
         reporter=reporter,
         env=env,
+        cwd=cwd,
         check=False,
     )
 
@@ -877,6 +908,9 @@ def run_tinytex_backend(
     started_at = monotonic() if started_at is None else started_at
     reporter = reporter or Reporter(verbose)
     root = tinytex_root()
+    source_path = Path(tex_file)
+    compile_directory = source_path.parent
+    compile_args = [source_path.name if argument == tex_file else argument for argument in latexmk_args]
     base, _ = os.path.splitext(os.fspath(tex_file))
     log_path = Path(f"{base}.log")
     pdf_path = Path(f"{base}.pdf")
@@ -915,7 +949,14 @@ def run_tinytex_backend(
                 )
 
     reporter.status(f"Compiling {tex_file}...")
-    result = run_tinytex_compile(engine, latexmk_args, root, env=env, reporter=reporter)
+    result = run_tinytex_compile(
+        engine,
+        compile_args,
+        root,
+        env=env,
+        reporter=reporter,
+        cwd=compile_directory,
+    )
     last_missing_files: list[str] = []
     last_unmapped_files: list[str] = []
 
@@ -968,7 +1009,15 @@ def run_tinytex_backend(
                 unmapped_files=tuple(last_unmapped_files),
                 primary_error=primary_latex_error(log_path, tex_file, missing_files),
             )
-        result = run_tinytex_compile(engine, latexmk_args, root, force=True, env=env, reporter=reporter)
+        result = run_tinytex_compile(
+            engine,
+            compile_args,
+            root,
+            force=True,
+            env=env,
+            reporter=reporter,
+            cwd=compile_directory,
+        )
     else:
         failure_kind = None
 
