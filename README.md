@@ -18,7 +18,7 @@ With Docker Desktop or Docker Engine:
 docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
 ```
 
-The Docker command works in Bash, zsh, and PowerShell. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.2.0` instead of `:latest` when reproducibility matters.
+The Docker command works in Bash, zsh, and PowerShell. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.2.1` instead of `:latest` when reproducibility matters.
 
 texMini builds existing LaTeX projects with real TeX Live and `latexmk`. On the first run, it downloads a minimal private TinyTeX runtime. When a document needs a package that is not installed, texMini finds the corresponding TeX Live package, installs it, and retries the build.
 
@@ -177,7 +177,7 @@ docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
 Use the versioned image for a reproducible invocation:
 
 ```bash
-docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:0.2.0 paper.tex
+docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:0.2.1 paper.tex
 ```
 
 The image bundles TinyTeX plus packages used by many math, layout, bibliography, hyperlink, color, and TikZ documents. Common documents can therefore build from the downloaded image alone. When networking is available, texMini downloads uncommon TeX Live packages as needed. Those additions are discarded with `--rm`; this is an isolated ready-to-run workflow, not a promise that every possible project compiles offline.
@@ -229,8 +229,8 @@ Build and smoke-test Docker:
 ```bash
 docker build -t texmini .
 docker run --rm --network none \
-  -v "${PWD}:/work" \
-  texmini test.tex
+  -v "${PWD}/tests/fixtures/bibliography:/work" \
+  texmini bibliography.tex
 ```
 
 TinyTeX bundle benchmark methodology and raw results are in [`benchmarks`](benchmarks).

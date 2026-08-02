@@ -62,9 +62,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex"
-          cp simple.tex "$RUNNER_TEMP/engines/pdflatex/"
-          cp simple.tex "$RUNNER_TEMP/engines/lualatex/"
-          cp simple.tex "$RUNNER_TEMP/engines/xelatex/"
+          cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/pdflatex/"
+          cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/lualatex/"
+          cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/xelatex/"
           cd "$RUNNER_TEMP/engines/pdflatex"
           "$UV_TOOL_BIN_DIR/texmini" --engine pdflatex simple.tex
           test -s simple.pdf
@@ -108,30 +108,32 @@ jobs:
       - name: Compile offline
         if: matrix.arch == 'amd64'
         run: |
+          simple_fixture="$PWD/tests/fixtures/simple"
+          bibliography_fixture="$PWD/tests/fixtures/bibliography"
           docker run --rm --network none \
-            -v "$PWD:/work" \
+            -v "$simple_fixture:/work" \
             texmini:test simple.tex
           docker run --rm --network none \
-            -v "$PWD:/work" \
-            texmini:test test.tex
+            -v "$bibliography_fixture:/work" \
+            texmini:test bibliography.tex
           second_output="$(docker run --rm --network none \
-            -v "$PWD:/work" \
-            texmini:test test.tex)"
+            -v "$bibliography_fixture:/work" \
+            texmini:test bibliography.tex)"
           printf '%s\n' "$second_output"
-          grep -q "test.pdf is up to date" <<< "$second_output"
+          grep -q "bibliography.pdf is up to date" <<< "$second_output"
           docker run --rm --network none \
-            -v "$PWD:/work" \
-            texmini:test --clean test.tex
-          test -s simple.pdf
-          test -s test.pdf
-          test ! -e test.aux
-          test "$(stat -c %u test.pdf)" = "$(id -u)"
+            -v "$bibliography_fixture:/work" \
+            texmini:test --clean bibliography.tex
+          test -s "$simple_fixture/simple.pdf"
+          test -s "$bibliography_fixture/bibliography.pdf"
+          test ! -e "$bibliography_fixture/bibliography.aux"
+          test "$(stat -c %u "$bibliography_fixture/bibliography.pdf")" = "$(id -u)"
       - name: Preserve explicit arbitrary UID behavior
         if: matrix.arch == 'amd64'
         run: |
           arbitrary_dir="$RUNNER_TEMP/arbitrary-uid"
           mkdir -p "$arbitrary_dir"
-          cp simple.tex "$arbitrary_dir/"
+          cp tests/fixtures/simple/simple.tex "$arbitrary_dir/"
           chmod 777 "$arbitrary_dir"
           docker run --rm --network none \
             --user 12345:12345 \
