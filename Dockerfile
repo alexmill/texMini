@@ -41,17 +41,18 @@ RUN set -eux; \
   tex_bin="$(find /opt/TinyTeX/bin -mindepth 1 -maxdepth 1 -type d -print -quit)"; \
   PATH="${tex_bin}:$PATH" tlmgr update --self; \
   PATH="${tex_bin}:$PATH" tlmgr install \
-    geometry amsmath biblatex biber csquotes xcolor hyperref pgf framed; \
+    geometry amsmath biblatex biber csquotes xcolor hyperref pgf framed enumitem microtype; \
   chmod -R a+rwX /opt/TinyTeX; \
   rm "/tmp/${archive}"
 
 FROM ${PYTHON_IMAGE} AS runtime
 
 RUN apt-get update \
-  && apt-get install --yes --no-install-recommends ca-certificates fontconfig perl \
+  && apt-get install --yes --no-install-recommends ca-certificates fontconfig perl util-linux \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=python-build /opt/texmini /opt/texmini
 COPY --from=tinytex /opt/TinyTeX /opt/TinyTeX
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/texmini-entrypoint
 
 ENV HOME=/tmp \
   PATH="/opt/texmini/bin:${PATH}" \
@@ -60,4 +61,4 @@ ENV HOME=/tmp \
   TEXMINI_TINYTEX_ROOT=/opt/TinyTeX
 
 WORKDIR /work
-ENTRYPOINT ["texmini"]
+ENTRYPOINT ["texmini-entrypoint"]

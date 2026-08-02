@@ -1,145 +1,208 @@
 # texMini
 
-texMini compiles LaTeX documents with a private, managed TinyTeX installation. It detects bibliography usage, installs missing TeX Live packages, retries the build, and removes auxiliary files after a successful compile.
+**LaTeX that just works, without managing a full TeX installation.**
 
-Install texMini directly from this repository with uv, or build its Docker image locally.
+## Try it now
 
-## uv
+Choose either path. Both run texMini without a separate texMini installation.
 
-Requirements:
-
-- [uv](https://docs.astral.sh/uv/)
-- Perl, which TinyTeX requires for `tlmgr` and `latexmk`
-
-Install directly from GitHub:
+On macOS or Linux with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv tool install git+https://github.com/alexmill/texMini
-texmini document.tex
+uvx texmini paper.tex
 ```
 
-Run without keeping the tool installed:
+With Docker Desktop or Docker Engine:
 
 ```bash
-uvx --from git+https://github.com/alexmill/texMini texmini document.tex
+docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
 ```
 
-The first compile downloads TinyTeX-0 into `~/.texmini/TinyTeX`, bootstraps the core compiler, and installs packages required by the document. Later builds reuse that runtime.
+The Docker command works in Bash, zsh, and PowerShell. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.2.0` instead of `:latest` when reproducibility matters.
 
-## Docker
+texMini builds existing LaTeX projects with real TeX Live and `latexmk`. On the first run, it downloads a minimal private TinyTeX runtime. When a document needs a package that is not installed, texMini finds the corresponding TeX Live package, installs it, and retries the build.
 
-Clone the repository and build the image:
+The result is a TeX installation that grows with your documents instead of arriving as a multi-gigabyte desktop distribution. It lives in `~/.texmini`, does not modify the system TeX installation, and can be removed by deleting that directory.
+
+```text
+paper.tex  ──▶  texmini  ──▶  install what is missing  ──▶  paper.pdf
+```
+
+pdfLaTeX, LuaLaTeX, XeLaTeX, Biber, and the wider TeX Live package ecosystem remain available. Existing projects do not need to adopt a new document language or a different TeX engine.
+
+## Why texMini
+
+A conventional TeX installation offers broad compatibility, but asks you to install and maintain an entire distribution. Tectonic offers an excellent self-contained build experience, but uses its own XeTeX-derived engine and cannot replace every traditional TeX engine and utility. TinyTeX provides the small, portable TeX Live foundation used here, while its most automatic missing-package workflow is normally accessed through R.
+
+texMini combines conventional TeX compatibility with a disposable command-line experience:
+
+- **Use the project you already have.** Build ordinary `.tex` files with TeX Live and `latexmk`.
+- **Install only what the document needs.** Missing classes, packages, fonts, bibliography styles, and Biber are resolved and installed automatically.
+- **Keep TeX contained.** The managed runtime and its packages stay under `~/.texmini`.
+- **Remove it like ordinary files.** There is no system-wide uninstaller or package database to unwind.
+- **Choose native or containerized execution.** The published Docker image is a ready-to-run, cross-platform option for common documents.
+
+## Comparison
+
+| System | Existing LaTeX projects | Package handling | Installation and removal | Main compromise |
+| --- | --- | --- | --- | --- |
+| **texMini** | Builds conventional projects with pdfLaTeX, LuaLaTeX, or XeLaTeX | Automatically detects and installs needed TeX Live packages into a private runtime | Run with `uvx` or Docker; delete `~/.texmini` to remove the native runtime | Specialized external tools can require additional setup |
+| [Tectonic](https://tectonic-typesetting.github.io/) | Builds many projects, subject to its XeTeX-derived engine and build model | Downloads support files from a configured bundle | A single executable and a removable cache | It does not provide every engine and utility in conventional TeX Live |
+| [TinyTeX with R](https://yihui.org/tinytex/) | Broad TeX Live compatibility | The R package can detect and install missing packages during compilation | A small, portable TeX Live directory | The automated workflow is coupled to R |
+| **TinyTeX from the shell** | Broad TeX Live compatibility | Packages are managed directly with `tlmgr` | A small, portable TeX Live directory | Compilation and missing-package repair are manual |
+| **TeX Live, MacTeX, or MiKTeX** | Broadest conventional compatibility | Large package sets or distribution-specific package management | A conventional desktop or system installation | More disk usage and distribution administration |
+| [Overleaf](https://www.overleaf.com/) | Builds projects supported by its hosted TeX environment | A large package set is supplied by the service | No local TeX installation | The build environment is remote and controlled by the service |
+| [Typst](https://typst.app/) | LaTeX projects must be rewritten | Uses Typst packages rather than TeX Live packages | A simple executable and package cache | It is a different document language, not a LaTeX compiler |
+
+## Native workflow
+
+The native managed runtime supports macOS and Linux and requires uv and Perl. TinyTeX uses Perl for `tlmgr` and `latexmk`. Windows users should use the Docker pathway above.
+
+Run texMini directly from PyPI:
 
 ```bash
-git clone https://github.com/alexmill/texMini.git
-cd texMini
-docker build -t texmini .
+uvx texmini paper.tex
 ```
 
-Compile from the current directory:
+The first compile downloads TinyTeX-0 into `~/.texmini/TinyTeX`, bootstraps the compiler, and installs the packages required by `paper.tex`. Later builds reuse that runtime.
 
-```bash
-docker run --rm \
-  --user "$(id -u):$(id -g)" \
-  -v "$PWD:/work" \
-  texmini document.tex
-```
-
-The image contains TinyTeX-1 plus common math, layout, bibliography, hyperlink, color, and TikZ packages. It can compile the repository fixtures without network access:
-
-```bash
-docker run --rm --network none \
-  --user "$(id -u):$(id -g)" \
-  -v "$PWD:/work" \
-  texmini test.tex
-```
-
-Uncommon packages are installed into the container at runtime when networking is available. Those additions are discarded with a `--rm` container.
-
-## How the CLI works
-
-The normal command is:
+For repeated authoring, use the default incremental workflow:
 
 ```bash
 texmini paper.tex
 ```
 
-texMini then:
+texMini retains LaTeX's auxiliary build state so unchanged builds and partial rebuilds are substantially faster. For a one-shot or CI build that should remove supported auxiliary files after success, use:
 
-1. Selects `paper.tex`, or auto-detects the source when the directory contains exactly one `.tex` file.
-2. Scans the source for bibliography commands and checks explicitly supplied `.bib` files.
-3. Installs the private TinyTeX runtime when it is not already present.
-4. Runs managed `latexmk` with `pdflatex`.
-5. If the build reports missing TeX files, resolves and installs their TeX Live packages, then retries.
-6. Writes `paper.pdf` beside the source and removes auxiliary files after a successful build.
+```bash
+texmini --clean paper.tex
+```
 
-The same command is used after both uv and Docker installation. Docker already contains the TinyTeX runtime and common packages, so it normally begins at the compile step.
+Install the command for repeated use:
 
-## CLI reference
+```bash
+uv tool install texmini
+texmini paper.tex
+```
+
+If a directory contains exactly one `.tex` file, the filename is optional:
+
+```bash
+texmini
+```
+
+## What happens during a build
+
+Running:
+
+```bash
+texmini paper.tex
+```
+
+causes texMini to:
+
+1. Select `paper.tex`, or find the only `.tex` file in the current directory.
+2. Check the source for required classes, packages, and bibliography tooling.
+3. Install the private TinyTeX runtime if it does not exist.
+4. Compile with managed `latexmk` and pdfLaTeX.
+5. Read a failed build for missing TeX files, resolve their TeX Live packages, and install them together.
+6. Continue installing and retrying while each round discovers a new package, with a 20-round safety ceiling.
+7. Write `paper.pdf` beside the source and retain incremental build state by default.
+
+Package mappings are cached in `~/.texmini/package-map.json`. Package installation modifies only texMini's private TinyTeX tree.
+
+## Engines and options
 
 ```text
 texmini [install-tinytex] [--engine pdflatex|lualatex|xelatex] [OPTIONS] [document.tex] [refs.bib ...]
 ```
-
-Options:
-
-- `--engine ENGINE`: select `pdflatex`, `lualatex`, or `xelatex`.
-- `--no-clean`: retain auxiliary files after a successful build.
-- `--no-install`: disable document-driven TeX Live package installation.
-- `--version`: print the texMini version.
-
-Arguments not handled by texMini are passed to managed `latexmk`. Continuous preview mode is not supported.
 
 Examples:
 
 ```bash
 texmini paper.tex
 texmini --engine lualatex paper.tex
-texmini --no-clean paper.tex
+texmini --engine xelatex paper.tex
+texmini --clean paper.tex
+texmini --verbose paper.tex
 texmini paper.tex references.bib
 ```
 
-If the working directory contains exactly one `.tex` file, the filename may be omitted:
+Options:
 
-```bash
-texmini
-```
+- `--engine ENGINE`: select `pdflatex`, `lualatex`, or `xelatex`.
+- `--clean`: remove supported auxiliary files after a successful build.
+- `--verbose`: show complete TeX, `latexmk`, Biber, and package-manager output.
+- `--no-install`: do not install missing TeX Live packages.
+- `--version`: print the texMini version.
 
-Use `install-tinytex` to prepare the managed runtime without compiling:
+Arguments not handled by texMini are passed to managed `latexmk`. Continuous preview mode (`-pvc`) is not supported.
+
+Prepare the managed runtime without compiling a document:
 
 ```bash
 texmini install-tinytex
 ```
 
-## Managed Packages
-
-texMini starts with TinyTeX-0 for uv installations. A failed build is handled by:
-
-1. Reading the LaTeX log and source for missing classes, packages, fonts, bibliography styles, and Biber.
-2. Resolving files to TeX Live packages through a small built-in map, a local cache, or `tlmgr search`.
-3. Installing all newly resolved packages in one `tlmgr install` call.
-4. Retrying the build up to five times.
-
-Package mappings are cached in `~/.texmini/package-map.json`. Package installation only modifies texMini's private TinyTeX tree.
-
 ## Bibliographies
 
-texMini detects `\bibliography{...}`, `\addbibresource{...}`, and `biblatex`. Explicit `.bib` arguments are checked before compilation:
+texMini detects `\bibliography{...}`, `\addbibresource{...}`, and `biblatex`. Biber is installed automatically when a managed document uses `biblatex`.
+
+Explicit bibliography files are checked before compilation:
 
 ```bash
 texmini paper.tex references.bib
 ```
 
-Biber is installed automatically when a managed document uses `biblatex`.
+## Build cleanup
 
-## Cleanup
+By default, successful builds retain `.aux`, `.bbl`, `.bcf`, `.fdb_latexmk`, and related state so `latexmk` can avoid unnecessary work on the next invocation.
 
-Successful builds keep `.tex`, `.bib`, and `.pdf` files. Common LaTeX auxiliaries such as `.aux`, `.bbl`, `.bcf`, `.blg`, `.log`, `.toc`, `.run.xml`, and Metafont's `missfont.log` are removed unless `--no-clean` is used. Failed builds retain their logs.
+With `--clean`, texMini removes supported auxiliary files after a successful build while preserving `.tex`, `.bib`, `.pdf`, and unrelated files. Failed builds always retain their logs and auxiliary files for diagnosis.
+
+## Output and diagnostics
+
+Normal builds show short, stable progress messages and suppress successful `tlmgr`, TeX, Metafont, Biber, and `latexmk` transcripts. Warnings that affect the finished document, including unresolved references and missing characters, remain visible.
+
+Use `--verbose` to stream complete subprocess output. On failure, the default output shows the primary LaTeX error and source line when available, points to the retained log, and warns when the failed invocation created or changed the PDF.
+
+## Docker
+
+Docker is the cross-platform, isolated pathway for Docker Desktop and Docker Engine users, including Windows. Compile a document in the current directory with:
+
+```bash
+docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
+```
+
+Use the versioned image for a reproducible invocation:
+
+```bash
+docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:0.2.0 paper.tex
+```
+
+The image bundles TinyTeX plus packages used by many math, layout, bibliography, hyperlink, color, and TikZ documents. Common documents can therefore build from the downloaded image alone. When networking is available, texMini downloads uncommon TeX Live packages as needed. Those additions are discarded with `--rm`; this is an isolated ready-to-run workflow, not a promise that every possible project compiles offline.
+
+On native Linux, the entrypoint writes outputs as the owner of the mounted directory. Explicit Docker `--user` settings remain supported. Docker Desktop handles bind-mount ownership through its virtual machine.
+
+## Automation and AI agents
+
+texMini is noninteractive and uses stable status lines without spinners or terminal-only formatting. A successful build exits with zero; a failed build returns the underlying nonzero status, retains its log and diagnostic files, and prints the primary error near the end. Use `--verbose` for complete tool transcripts and `--clean` when an automation should remove supported auxiliary files after success.
+
+This makes texMini friendly to scripts, CI, and AI coding agents without adding an agent-specific protocol: the same small CLI is used by people and automation.
+
+## Compatibility and limitations
+
+texMini targets ordinary projects that build with real TeX Live, `latexmk`, and pdfLaTeX, LuaLaTeX, or XeLaTeX. It can plausibly replace the compilation part of an Overleaf workflow, but it is not a collaborative editor or document-hosting service.
+
+- Native runtime installation supports macOS and Linux; Windows uses Docker Desktop.
+- Specialized external tools such as glossary generators, Pygments-based syntax highlighting, or project-specific scripts may require additional setup.
+- The managed native runtime grows as packages are installed. It is shared across builds and is not locked independently per project.
+- TeX projects can depend on system fonts, executables, or shell-escape behavior that texMini does not automatically provision.
 
 ## Environment
 
 - `TEXMINI_ENGINE`: default engine; defaults to `pdflatex`.
-- `TEXMINI_AUTO_CLEAN=false`: disable successful-build cleanup.
+- `TEXMINI_CLEAN=true`: remove supported auxiliary files after successful builds.
 - `TEXMINI_AUTO_INSTALL=false`: disable document-driven package installation.
 - `TEXMINI_TINYTEX_ROOT`: managed TinyTeX directory; defaults to `~/.texmini/TinyTeX`.
 - `TEXMINI_TINYTEX_BUNDLE`: release bundle; defaults to `TinyTeX-0`.
@@ -150,10 +213,10 @@ Successful builds keep `.tex`, `.bib`, and `.pdf` files. Common LaTeX auxiliarie
 Run texMini from the source tree:
 
 ```bash
-uv run texmini document.tex
+uv run texmini paper.tex
 ```
 
-Run the Python suite and validate the distributions:
+Run the test suite and validate the distributions:
 
 ```bash
 uv run python -m unittest discover -s tests -v
@@ -166,8 +229,7 @@ Build and smoke-test Docker:
 ```bash
 docker build -t texmini .
 docker run --rm --network none \
-  --user "$(id -u):$(id -g)" \
-  -v "$PWD:/work" \
+  -v "${PWD}:/work" \
   texmini test.tex
 ```
 
