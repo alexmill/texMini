@@ -84,8 +84,19 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("ghcr.io/astral-sh/uv:0.11.20@sha256:", dockerfile)
         self.assertIn("uv build --wheel", dockerfile)
         self.assertIn("biblatex biber csquotes", dockerfile)
-        self.assertIn('ENTRYPOINT ["texmini"]', dockerfile)
+        self.assertIn("enumitem microtype", dockerfile)
+        self.assertIn("util-linux", dockerfile)
+        self.assertIn("COPY --chmod=755 docker-entrypoint.sh", dockerfile)
+        self.assertIn('ENTRYPOINT ["texmini-entrypoint"]', dockerfile)
         self.assertNotIn("nix", dockerfile.lower())
+
+    def test_docker_entrypoint_matches_work_directory_ownership(self) -> None:
+        entrypoint = (ROOT / "docker-entrypoint.sh").read_text(encoding="utf-8")
+
+        self.assertIn("stat -c %u /work", entrypoint)
+        self.assertIn("stat -c %g /work", entrypoint)
+        self.assertIn("setpriv --reuid", entrypoint)
+        self.assertIn('exec texmini "$@"', entrypoint)
 
     def test_release_workflow_uses_tag_gates_and_trusted_publishing(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
@@ -105,6 +116,7 @@ class PackagingTest(unittest.TestCase):
             [
                 "*",
                 "!Dockerfile",
+                "!docker-entrypoint.sh",
                 "!LICENSE",
                 "!README.md",
                 "!pyproject.toml",

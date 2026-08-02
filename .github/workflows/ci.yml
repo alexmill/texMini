@@ -53,14 +53,30 @@ jobs:
         run: |
           uv build --wheel --out-dir "$RUNNER_TEMP/dist"
           uv tool install --force "$RUNNER_TEMP"/dist/*.whl
-      - name: Compile with a fresh managed runtime
+      - name: Compile all engines with one fresh managed runtime
         env:
           UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
           UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
           TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
           TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
         run: |
-          "$UV_TOOL_BIN_DIR/texmini" simple.tex
+          mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex"
+          cp simple.tex "$RUNNER_TEMP/engines/pdflatex/"
+          cp simple.tex "$RUNNER_TEMP/engines/lualatex/"
+          cp simple.tex "$RUNNER_TEMP/engines/xelatex/"
+          cd "$RUNNER_TEMP/engines/pdflatex"
+          "$UV_TOOL_BIN_DIR/texmini" --engine pdflatex simple.tex
+          test -s simple.pdf
+          second_output="$("$UV_TOOL_BIN_DIR/texmini" simple.tex)"
+          printf '%s\n' "$second_output"
+          grep -q "simple.pdf is up to date" <<< "$second_output"
+          "$UV_TOOL_BIN_DIR/texmini" --clean simple.tex
+          test ! -e simple.aux
+          cd "$RUNNER_TEMP/engines/lualatex"
+          "$UV_TOOL_BIN_DIR/texmini" --engine lualatex simple.tex
+          test -s simple.pdf
+          cd "$RUNNER_TEMP/engines/xelatex"
+          "$UV_TOOL_BIN_DIR/texmini" --engine xelatex simple.tex
           test -s simple.pdf
 
   docker:
@@ -92,13 +108,32 @@ jobs:
         if: matrix.arch == 'amd64'
         run: |
           docker run --rm --network none \
-            --user "$(id -u):$(id -g)" \
             -v "$PWD:/work" \
             texmini:test simple.tex
           docker run --rm --network none \
-            --user "$(id -u):$(id -g)" \
             -v "$PWD:/work" \
             texmini:test test.tex
+          second_output="$(docker run --rm --network none \
+            -v "$PWD:/work" \
+            texmini:test test.tex)"
+          printf '%s\n' "$second_output"
+          grep -q "test.pdf is up to date" <<< "$second_output"
+          docker run --rm --network none \
+            -v "$PWD:/work" \
+            texmini:test --clean test.tex
           test -s simple.pdf
           test -s test.pdf
+          test ! -e test.aux
           test "$(stat -c %u test.pdf)" = "$(id -u)"
+      - name: Preserve explicit arbitrary UID behavior
+        if: matrix.arch == 'amd64'
+        run: |
+          arbitrary_dir="$RUNNER_TEMP/arbitrary-uid"
+          mkdir -p "$arbitrary_dir"
+          cp simple.tex "$arbitrary_dir/"
+          chmod 777 "$arbitrary_dir"
+          docker run --rm --network none \
+            --user 12345:12345 \
+            -v "$arbitrary_dir:/work" \
+            texmini:test simple.tex
+          test "$(stat -c %u "$arbitrary_dir/simple.pdf")" = 12345

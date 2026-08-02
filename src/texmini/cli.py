@@ -1,7 +1,15 @@
 import os
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+from time import monotonic
+from typing import TYPE_CHECKING
 
 from texmini import __version__
+
+if TYPE_CHECKING:
+    import subprocess
+    import tarfile
 
 
 ENGINE_ARGS = {
@@ -14,6 +22,7 @@ AUX_EXTENSIONS = [
     "aux",
     "bbl",
     "bcf",
+    "bcf-SAVE-ERROR",
     "blg",
     "fls",
     "fdb_latexmk",
@@ -31,7 +40,7 @@ TINYTEX_RELEASE_API = "https://api.github.com/repos/rstudio/tinytex-releases/rel
 DEFAULT_TINYTEX_BUNDLE = "TinyTeX-0"
 TINYTEX_BOOTSTRAP_PACKAGES = ["latex-bin", "latexmk", "metafont", "mfware"]
 TINYTEX_ENGINE_PACKAGES = {"xelatex": "xetex"}
-AUTO_INSTALL_RETRIES = 5
+MAX_INSTALL_ROUNDS = 20
 MISSING_FILE_EXTENSIONS = "sty|cls|bst|bbx|cbx|def|fd|map|tfm|pfb|otf|ttf|enc|cfg"
 COMMON_TEXLIVE_FILE_PACKAGES = {
     "amsmath.sty": "amsmath",
@@ -58,16 +67,78 @@ class TexMiniError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class PrimaryError:
+    message: str
+    file: str | None = None
+    line: int | None = None
+
+
+@dataclass
+class BuildOutcome:
+    returncode: int
+    elapsed_seconds: float
+    pdf_changed: bool
+    failure_kind: str | None = None
+    missing_files: tuple[str, ...] = ()
+    unmapped_files: tuple[str, ...] = ()
+    primary_error: PrimaryError | None = None
+
+
+class Reporter:
+    def __init__(self, verbose: bool = False) -> None:
+        self.verbose = verbose
+        self._gpg_warning_printed = False
+
+    def status(self, message: str) -> None:
+        print(message, flush=True)
+
+    def warning(self, message: str) -> None:
+        print(message, file=sys.stderr, flush=True)
+
+    def error(self, message: str) -> None:
+        print(message, file=sys.stderr, flush=True)
+
+    def observe_output(self, output: str) -> None:
+        if self.verbose or self._gpg_warning_printed:
+            return
+        if "not verified: gpg unavailable" in output.lower():
+            self.warning("Warning: TeX Live could not verify repository signatures because GPG is unavailable.")
+            self.warning("Use --verbose for details.")
+            self._gpg_warning_printed = True
+
+
 _missing_file_patterns = None
 _biblatex_style_patterns = None
 _source_patterns = None
 _source_cache: dict[str, tuple[int, int, str]] = {}
 
 
-def run_command(args: list[str], **kwargs: object):
+def run_command(args: list[str], reporter: Reporter | None = None, **kwargs: object):
     import subprocess
 
-    return subprocess.run(args, **kwargs)
+    if reporter is None:
+        return subprocess.run(args, **kwargs)
+
+    options = dict(kwargs)
+    options.pop("stdout", None)
+    options.pop("stderr", None)
+    options.pop("check", None)
+    options["stdout"] = subprocess.PIPE
+    options["stderr"] = subprocess.STDOUT
+    options["text"] = True
+    if reporter.verbose:
+        process = subprocess.Popen(args, **options)
+        output_parts: list[str] = []
+        assert process.stdout is not None
+        for line in process.stdout:
+            output_parts.append(line)
+            print(line, end="", flush=True)
+        return subprocess.CompletedProcess(args, process.wait(), "".join(output_parts), None)
+
+    result = subprocess.run(args, check=False, **options)
+    reporter.observe_output(result.stdout or "")
+    return result
 
 
 def read_source_file(path: str) -> str:
@@ -146,21 +217,23 @@ def print_help() -> None:
     print(
         """Usage: texmini [install-tinytex] [--engine pdflatex|lualatex|xelatex] [OPTIONS] [document.tex] [refs.bib ...]
 
-Compile a LaTeX document, detect bibliography files, and clean auxiliary files after successful builds.
+Compile a LaTeX document with a private TinyTeX runtime.
 
 Options:
   --engine ENGINE   Select pdflatex, lualatex, or xelatex.
-  --no-clean        Keep auxiliary files after a successful build.
-  --no-install      Disable TinyTeX package autoinstall.
+  --clean           Remove auxiliary files after a successful build.
+  --verbose         Show complete TeX, latexmk, and package-manager output.
+  --no-install      Do not install missing TeX Live packages.
   --version         Print the texMini version.
 
 All other arguments are passed through to latexmk."""
     )
 
 
-def parse_args(argv: list[str]) -> tuple[str, bool, bool, list[str], list[str], str | None]:
+def parse_args(argv: list[str]) -> tuple[str, bool, bool, bool, list[str], list[str], str | None]:
     engine = os.environ.get("TEXMINI_ENGINE", "pdflatex")
-    auto_clean = os.environ.get("TEXMINI_AUTO_CLEAN", "true").lower() != "false"
+    clean = os.environ.get("TEXMINI_CLEAN", "false").lower() == "true"
+    verbose = False
     auto_install = os.environ.get("TEXMINI_AUTO_INSTALL", "true").lower() != "false"
     latexmk_args: list[str] = []
     bib_files: list[str] = []
@@ -181,8 +254,12 @@ def parse_args(argv: list[str]) -> tuple[str, bool, bool, list[str], list[str], 
             engine = arg.split("=", 1)[1]
             i += 1
             continue
-        if arg == "--no-clean":
-            auto_clean = False
+        if arg == "--clean":
+            clean = True
+            i += 1
+            continue
+        if arg == "--verbose":
+            verbose = True
             i += 1
             continue
         if arg == "--no-install":
@@ -209,7 +286,7 @@ def parse_args(argv: list[str]) -> tuple[str, bool, bool, list[str], list[str], 
     if engine not in ENGINE_ARGS:
         raise TexMiniError("Error: --engine must be pdflatex, lualatex, or xelatex.")
 
-    return engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file
+    return engine, clean, verbose, auto_install, latexmk_args, bib_files, tex_file
 
 
 def executable_on_path(command: str) -> str | None:
@@ -220,13 +297,14 @@ def executable_on_path(command: str) -> str | None:
     return None
 
 
-def detect_tex_file(latexmk_args: list[str], tex_file: str | None) -> str:
+def detect_tex_file(latexmk_args: list[str], tex_file: str | None, reporter: Reporter | None = None) -> str:
+    reporter = reporter or Reporter()
     if tex_file is not None:
         return tex_file
 
     tex_files = sorted(entry.name for entry in os.scandir(os.getcwd()) if entry.is_file() and entry.name.endswith(".tex"))
     if len(tex_files) == 1:
-        print(f"Auto-detected LaTeX file: {tex_files[0]}")
+        reporter.status(f"Auto-detected LaTeX file: {tex_files[0]}")
         latexmk_args.append(tex_files[0])
         return tex_files[0]
 
@@ -239,7 +317,8 @@ def detect_tex_file(latexmk_args: list[str], tex_file: str | None) -> str:
     raise SystemExit(1)
 
 
-def check_bibliography(tex_file: str, bib_files: list[str]) -> None:
+def check_bibliography(tex_file: str, bib_files: list[str], reporter: Reporter | None = None) -> None:
+    reporter = reporter or Reporter()
     tex_path = os.fspath(tex_file)
     if not os.path.isfile(tex_path):
         return
@@ -248,30 +327,25 @@ def check_bibliography(tex_file: str, bib_files: list[str]) -> None:
     if not source_uses_bibliography(source):
         return
 
-    print(f"Detected bibliography usage in {tex_file}")
     if bib_files:
-        print(f"Using explicitly specified bibliography files: {' '.join(bib_files)}")
         for bib_file in bib_files:
             if not os.path.isfile(bib_file):
                 raise TexMiniError(f"Error: Specified bibliography file '{bib_file}' not found")
             if bib_file not in source:
-                print(f"Warning: Bibliography file {bib_file} specified but not referenced in {tex_file}")
-                print(f"You may need to add \\addbibresource{{{bib_file}}} to your document")
+                reporter.warning(f"Warning: Bibliography file {bib_file} is not referenced in {tex_file}.")
+                reporter.warning(f"You may need to add \\addbibresource{{{bib_file}}} to your document.")
         return
 
     detected_bib_files = sorted(entry.name for entry in os.scandir(os.getcwd()) if entry.is_file() and entry.name.endswith(".bib"))
     if len(detected_bib_files) == 1:
         bib_file = detected_bib_files[0]
-        print(f"Auto-detected bibliography file: {bib_file}")
         if bib_file not in source:
-            print(f"Warning: Bibliography file {bib_file} found but not referenced in {tex_file}")
-            print(f"You may need to add \\addbibresource{{{bib_file}}} to your document")
+            reporter.warning(f"Warning: Bibliography file {bib_file} is not referenced in {tex_file}.")
+            reporter.warning(f"You may need to add \\addbibresource{{{bib_file}}} to your document.")
     elif not detected_bib_files:
-        print(f"Warning: Bibliography commands found in {tex_file} but no .bib files found")
+        reporter.warning(f"Warning: Bibliography commands were found in {tex_file}, but no .bib files were found.")
     else:
-        print(f"Info: Multiple .bib files found: {' '.join(detected_bib_files)}")
-        print("Make sure the correct ones are referenced in your document")
-        print(f"Or specify explicitly: texmini {tex_file} file1.bib file2.bib")
+        reporter.warning(f"Warning: Multiple bibliography files found: {' '.join(detected_bib_files)}")
 
 
 def cleanup_auxiliary_files(tex_file: str) -> None:
@@ -286,19 +360,21 @@ def cleanup_auxiliary_files(tex_file: str) -> None:
             os.unlink(path)
         except FileNotFoundError:
             pass
-    print("Build successful, all auxiliary files cleaned (kept: .tex, .bib, .pdf)")
 
 
 def tinytex_root() -> "Path":
-    from pathlib import Path
-
     return Path(os.environ.get("TEXMINI_TINYTEX_ROOT", Path.home() / ".texmini" / "TinyTeX"))
 
 
 def package_map_path() -> "Path":
-    from pathlib import Path
-
     return Path(os.environ.get("TEXMINI_PACKAGE_MAP", Path.home() / ".texmini" / "package-map.json"))
+
+
+def display_path(path: Path) -> str:
+    try:
+        return os.fspath(Path("~") / path.relative_to(Path.home()))
+    except ValueError:
+        return os.fspath(path)
 
 
 def tinytex_bin_dir(root: "Path", executable: str = "latexmk") -> "Path":
@@ -334,7 +410,7 @@ def tinytex_platform_key() -> str:
     raise TexMiniError("Error: The Python TinyTeX installer currently supports macOS and Linux.")
 
 
-def latest_tinytex_asset() -> tuple[str, str]:
+def latest_tinytex_asset() -> tuple[str, str, str | None]:
     import json
     import urllib.request
 
@@ -345,23 +421,26 @@ def latest_tinytex_asset() -> tuple[str, str]:
     for asset in release["assets"]:
         name = asset["name"]
         if name.startswith(prefix) and name.endswith(".tar.xz"):
-            return name, asset["browser_download_url"]
+            return name, asset["browser_download_url"], asset.get("digest")
     raise TexMiniError(f"Error: No {bundle} TinyTeX archive found for this platform.")
 
 
-def update_tinytex_manager(root: "Path") -> None:
+def update_tinytex_manager(root: "Path", reporter: Reporter) -> None:
     env = tinytex_env(root, "tlmgr")
-    print("Updating the managed TinyTeX package manager")
-    update_result = run_command(["tlmgr", "update", "--self"], env=env, check=False)
+    if reporter.verbose:
+        reporter.status("Updating the managed TinyTeX package manager...")
+    update_result = run_command(["tlmgr", "update", "--self"], reporter=reporter, env=env, check=False)
     if update_result.returncode != 0:
         raise TexMiniError("Error: TinyTeX package manager bootstrap failed.")
 
 
-def bootstrap_tinytex(root: "Path") -> None:
-    update_tinytex_manager(root)
+def bootstrap_tinytex(root: "Path", reporter: Reporter) -> None:
+    update_tinytex_manager(root, reporter)
     env = tinytex_env(root, "tlmgr")
-    print(f"Installing TinyTeX bootstrap packages: {' '.join(TINYTEX_BOOTSTRAP_PACKAGES)}")
-    install_result = run_command(["tlmgr", "install", *TINYTEX_BOOTSTRAP_PACKAGES], env=env, check=False)
+    reporter.status("Installing the LaTeX compiler...")
+    install_result = run_command(
+        ["tlmgr", "install", *TINYTEX_BOOTSTRAP_PACKAGES], reporter=reporter, env=env, check=False
+    )
     if install_result.returncode != 0:
         raise TexMiniError("Error: TinyTeX bootstrap package installation failed.")
     tinytex_bin_dir(root)
@@ -394,11 +473,14 @@ def validate_tinytex_archive_member(member: "tarfile.TarInfo") -> None:
             raise TexMiniError(f"Error: Unsafe link in TinyTeX archive: {member.name} -> {member.linkname}")
 
 
-def install_tinytex_archive(root: "Path") -> None:
+def install_tinytex_archive(root: "Path", reporter: Reporter | None = None) -> None:
+    import hashlib
+    import shutil
     import tarfile
     import tempfile
     import urllib.request
-    from pathlib import Path
+
+    reporter = reporter or Reporter()
 
     if executable_on_path("perl") is None:
         raise TexMiniError("Error: Perl is required to install and run TinyTeX. Install Perl and retry.")
@@ -408,22 +490,41 @@ def install_tinytex_archive(root: "Path") -> None:
             try:
                 tinytex_bin_dir(root)
             except TexMiniError:
-                bootstrap_tinytex(root)
+                bootstrap_tinytex(root, reporter)
         else:
             tinytex_bin_dir(root)
-        print(f"TinyTeX already installed at {root}")
         return
 
-    name, url = latest_tinytex_asset()
+    reporter.status(f"Preparing a private TinyTeX runtime in {display_path(root)}.")
+    reporter.status("This one-time setup requires a network connection and may take a minute.")
+    name, url, digest = latest_tinytex_asset()
     root.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading {name}")
     with tempfile.TemporaryDirectory(prefix=".texmini-extract-", dir=root.parent) as temporary_directory:
         extraction_root = Path(temporary_directory)
+        archive_path = extraction_root / name
+        if reporter.verbose:
+            reporter.status(f"Downloading {url}")
         with urllib.request.urlopen(url, timeout=60) as response:
-            with tarfile.open(fileobj=response, mode="r|xz") as tar:
-                for member in tar:
-                    validate_tinytex_archive_member(member)
-                    tar.extract(member, extraction_root)
+            with archive_path.open("wb") as archive:
+                shutil.copyfileobj(response, archive)
+        if digest and digest.startswith("sha256:"):
+            expected = digest.removeprefix("sha256:")
+            checksum = hashlib.sha256()
+            with archive_path.open("rb") as archive:
+                for chunk in iter(lambda: archive.read(1024 * 1024), b""):
+                    checksum.update(chunk)
+            actual = checksum.hexdigest()
+            if actual != expected:
+                raise TexMiniError(f"Error: Checksum verification failed for {name}.")
+            if reporter.verbose:
+                reporter.status(f"Verified SHA-256: {actual}")
+        reporter.status(f"Downloaded {tinytex_bundle()}.")
+        if reporter.verbose:
+            reporter.status(f"Extracting {name}...")
+        with tarfile.open(archive_path, mode="r:xz") as tar:
+            for member in tar:
+                validate_tinytex_archive_member(member)
+                tar.extract(member, extraction_root)
         extracted_root = next(
             (candidate for root_name in ("TinyTeX", ".TinyTeX") if (candidate := extraction_root / root_name).exists()),
             None,
@@ -432,19 +533,19 @@ def install_tinytex_archive(root: "Path") -> None:
             raise TexMiniError("Error: TinyTeX archive did not contain a TinyTeX runtime.")
         extracted_root.rename(root)
     if tinytex_bundle() == "TinyTeX-0":
-        bootstrap_tinytex(root)
+        bootstrap_tinytex(root, reporter)
     else:
-        update_tinytex_manager(root)
+        update_tinytex_manager(root, reporter)
     tinytex_bin_dir(root)
-    print(f"TinyTeX installed at {root}")
 
 
-def install_tinytex() -> int:
+def install_tinytex(verbose: bool = False) -> int:
+    reporter = Reporter(verbose)
     try:
-        install_tinytex_archive(tinytex_root())
+        install_tinytex_archive(tinytex_root(), reporter)
         return 0
     except TexMiniError as error:
-        print(error)
+        reporter.error(str(error))
         return 1
 
 
@@ -493,23 +594,6 @@ def tex_log_requirements(log_path: "Path") -> tuple[list[str], list[str]]:
     return found, direct_packages
 
 
-def missing_tex_files_from_log(log_path: "Path") -> list[str]:
-    missing_files, _ = tex_log_requirements(log_path)
-    return missing_files
-
-
-def missing_tinytex_packages_from_log(log_path: "Path") -> list[str]:
-    _, direct_packages = tex_log_requirements(log_path)
-    return direct_packages
-
-
-def report_missing_tex_files(tex_file: str) -> None:
-    base, _ = os.path.splitext(os.fspath(tex_file))
-    missing_files = missing_tex_files_from_log(f"{base}.log")
-    if missing_files:
-        print(f"Missing TeX files found: {', '.join(missing_files)}")
-
-
 def tex_source_requirements(tex_file: str) -> tuple[list[str], list[str]]:
     tex_path = os.fspath(tex_file)
     if not os.path.isfile(tex_path):
@@ -545,6 +629,7 @@ def missing_tinytex_source_files(
     tex_file: str,
     env: dict[str, str] | None = None,
     source_files: list[str] | None = None,
+    reporter: Reporter | None = None,
 ) -> list[str]:
     env = tinytex_env(root) if env is None else env
     source_files = tex_source_package_files(tex_file) if source_files is None else source_files
@@ -555,6 +640,7 @@ def missing_tinytex_source_files(
 
     result = run_command(
         ["kpsewhich", *source_files],
+        reporter=reporter,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
@@ -563,11 +649,6 @@ def missing_tinytex_source_files(
     )
     found_files = {os.path.basename(line) for line in result.stdout.splitlines() if line}
     return [file_name for file_name in source_files if file_name not in found_files]
-
-
-def tinytex_packages_from_source(tex_file: str) -> list[str]:
-    _, direct_packages = tex_source_requirements(tex_file)
-    return direct_packages
 
 
 def load_package_map(path: "Path") -> dict[str, str]:
@@ -618,6 +699,7 @@ def resolve_tinytex_packages(
     missing_files: list[str],
     cache_path: "Path | None" = None,
     env: dict[str, str] | None = None,
+    reporter: Reporter | None = None,
 ) -> dict[str, str]:
     env = tinytex_env(root) if env is None else env
     cache_path = package_map_path() if cache_path is None else cache_path
@@ -642,6 +724,7 @@ def resolve_tinytex_packages(
 
         result = run_command(
             ["tlmgr", "search", "--global", "--file", f"/{missing_file}"],
+            reporter=reporter,
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -663,18 +746,19 @@ def install_tinytex_packages(
     root: "Path",
     packages: list[str],
     env: dict[str, str] | None = None,
+    reporter: Reporter | None = None,
 ) -> "subprocess.CompletedProcess[str]":
     env = tinytex_env(root) if env is None else env
-    return run_command(["tlmgr", "install", *packages], env=env, check=False)
+    return run_command(["tlmgr", "install", *packages], reporter=reporter, env=env, check=False)
 
 
-def ensure_tinytex_engine(root: "Path", engine: str, env: dict[str, str]) -> None:
+def ensure_tinytex_engine(root: "Path", engine: str, env: dict[str, str], reporter: Reporter) -> None:
     package = TINYTEX_ENGINE_PACKAGES.get(engine)
     if package is None or executable_on_path_with_env(engine, env):
         return
 
-    print(f"Installing TeX Live engine package: {package}")
-    result = install_tinytex_packages(root, [package], env)
+    reporter.status(f"Installing the {engine} engine...")
+    result = install_tinytex_packages(root, [package], env, reporter)
     if result.returncode != 0:
         raise TexMiniError(f"Error: TinyTeX could not install the {engine} engine.")
 
@@ -693,91 +777,238 @@ def run_tinytex_compile(
     root: "Path",
     force: bool = False,
     env: dict[str, str] | None = None,
+    reporter: Reporter | None = None,
 ) -> "subprocess.CompletedProcess[str]":
     env = tinytex_env(root) if env is None else env
     force_args = ["-g"] if force else []
     return run_command(
-        ["latexmk", *ENGINE_ARGS[engine], "-interaction=nonstopmode", *force_args, *latexmk_args],
+        ["latexmk", *ENGINE_ARGS[engine], "-interaction=nonstopmode", "-file-line-error", *force_args, *latexmk_args],
+        reporter=reporter,
         env=env,
         check=False,
     )
 
 
-def log_autoinstall_resolution(missing_files: list[str], resolved: dict[str, str], packages: list[str], retry: int) -> None:
-    print(f"TinyTeX autoinstall retry {retry}/{AUTO_INSTALL_RETRIES}")
+def pdf_snapshot(path: Path) -> tuple[int, int] | None:
+    if not path.is_file():
+        return None
+    stat_result = path.stat()
+    return stat_result.st_mtime_ns, stat_result.st_size
+
+
+def format_elapsed(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.2f}s"
+    minutes, remaining = divmod(round(seconds), 60)
+    return f"{minutes}m {remaining:02d}s"
+
+
+def primary_latex_error(log_path: Path, tex_file: str, missing_files: list[str]) -> PrimaryError | None:
+    import re
+
     if missing_files:
-        print(f"Missing TeX files found: {', '.join(missing_files)}")
-    else:
-        print("Missing TeX files found: none")
-    if resolved:
-        pairs = [f"{file_name} -> {package}" for file_name, package in resolved.items()]
-        print(f"Resolved TeX packages: {', '.join(pairs)}")
-    else:
-        print("Resolved TeX packages: none")
-    if packages:
-        print(f"Installing TeX Live packages: {' '.join(packages)}")
-    else:
-        print("Installing TeX Live packages: none")
+        return PrimaryError(f"{missing_files[0]} is missing")
+    if not log_path.is_file():
+        return None
+    source = log_path.read_text(encoding="utf-8", errors="replace")
+    file_line = re.search(r"^(.*?\.tex):(\d+):\s*(?:!\s*)?(.+)$", source, re.MULTILINE)
+    if file_line:
+        return PrimaryError(
+            file_line.group(3).strip().rstrip("."),
+            file_line.group(1).removeprefix("./"),
+            int(file_line.group(2)),
+        )
+    lines = source.splitlines()
+    for index, line in enumerate(lines):
+        if not line.startswith("! "):
+            continue
+        message = line[2:].strip().rstrip(".")
+        for context in lines[index + 1 : index + 8]:
+            line_match = re.match(r"l\.(\d+)\s", context)
+            if line_match:
+                return PrimaryError(message, tex_file, int(line_match.group(1)))
+        return PrimaryError(message)
+    return None
+
+
+def document_warnings(log_path: Path) -> list[str]:
+    import re
+
+    if not log_path.is_file():
+        return []
+    patterns = (
+        re.compile(
+            r"(?:LaTeX|Package \S+|Class \S+) Warning:.*(?:undefined|rerun|\(re\)run)", re.IGNORECASE
+        ),
+        re.compile(r"LaTeX Warning: There were undefined (?:references|citations)", re.IGNORECASE),
+        re.compile(r"Missing character:", re.IGNORECASE),
+        re.compile(r"Font Warning:.*(?:not available|substituted)", re.IGNORECASE),
+    )
+    warnings: list[str] = []
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped and any(pattern.search(stripped) for pattern in patterns) and stripped not in warnings:
+            warnings.append(stripped)
+    return warnings
+
+
+def show_resolution_mappings(resolved: dict[str, str], reporter: Reporter) -> None:
+    if not reporter.verbose:
+        return
+    for file_name, package in resolved.items():
+        reporter.status(f"{file_name} -> {package}")
 
 
 def run_tinytex_backend(
     engine: str,
-    auto_clean: bool,
     auto_install: bool,
+    verbose: bool,
     tex_file: str,
     latexmk_args: list[str],
-) -> "subprocess.CompletedProcess[str]":
+    started_at: float | None = None,
+    reporter: Reporter | None = None,
+) -> BuildOutcome:
+    started_at = monotonic() if started_at is None else started_at
+    reporter = reporter or Reporter(verbose)
     root = tinytex_root()
-    install_tinytex_archive(root)
-
-    env = tinytex_env(root)
-    ensure_tinytex_engine(root, engine, env)
-    result = run_tinytex_compile(engine, latexmk_args, root, env=env)
-    attempted_packages: set[str] = set()
     base, _ = os.path.splitext(os.fspath(tex_file))
-    log_path = f"{base}.log"
-    source_files: list[str] | None = None
-    source_direct_packages: list[str] = []
-    retry = 0
+    log_path = Path(f"{base}.log")
+    pdf_path = Path(f"{base}.pdf")
+    pdf_before = pdf_snapshot(pdf_path)
 
-    while result.returncode != 0 and auto_install and retry < AUTO_INSTALL_RETRIES:
-        if source_files is None:
-            source_files, source_direct_packages = tex_source_requirements(tex_file)
+    install_tinytex_archive(root, reporter)
+    env = tinytex_env(root)
+    ensure_tinytex_engine(root, engine, env, reporter)
+    source_files, source_direct_packages = tex_source_requirements(tex_file)
+    source_direct_packages = [
+        package for package in source_direct_packages if executable_on_path_with_env(package, env) is None
+    ]
+    attempted_packages: set[str] = set()
+    install_rounds = 0
+
+    if auto_install:
+        source_missing = missing_tinytex_source_files(root, tex_file, env, source_files, reporter)
+        source_resolved = (
+            resolve_tinytex_packages(root, source_missing, env=env, reporter=reporter) if source_missing else {}
+        )
+        initial_packages = sorted(set(source_resolved.values()) | set(source_direct_packages))
+        show_resolution_mappings(source_resolved, reporter)
+        if initial_packages:
+            reporter.status(f"Analyzing {tex_file}...")
+            noun = "package" if len(initial_packages) == 1 else "packages"
+            reporter.status(f"Installing {len(initial_packages)} {noun}: {', '.join(initial_packages)}")
+            install_result = install_tinytex_packages(root, initial_packages, env, reporter)
+            attempted_packages.update(initial_packages)
+            install_rounds += 1
+            if install_result.returncode != 0:
+                return BuildOutcome(
+                    install_result.returncode,
+                    monotonic() - started_at,
+                    pdf_snapshot(pdf_path) != pdf_before,
+                    failure_kind="install_failed",
+                )
+
+    reporter.status(f"Compiling {tex_file}...")
+    result = run_tinytex_compile(engine, latexmk_args, root, env=env, reporter=reporter)
+    last_missing_files: list[str] = []
+    last_unmapped_files: list[str] = []
+
+    while result.returncode != 0:
         missing_files, log_direct_packages = tex_log_requirements(log_path)
-        for missing_file in missing_tinytex_source_files(root, tex_file, env, source_files):
+        for missing_file in missing_tinytex_source_files(root, tex_file, env, source_files, reporter):
             if missing_file not in missing_files:
                 missing_files.append(missing_file)
         direct_packages = [*log_direct_packages, *source_direct_packages]
+        last_missing_files = missing_files
 
-        if not missing_files and not direct_packages:
-            print("TinyTeX autoinstall: no missing TeX files or packages found in the log or source.")
+        if not auto_install:
+            failure_kind = "disabled" if missing_files or direct_packages else "ordinary"
             break
 
-        resolved = resolve_tinytex_packages(root, missing_files, env=env) if missing_files else {}
+        resolved = resolve_tinytex_packages(root, missing_files, env=env, reporter=reporter) if missing_files else {}
+        show_resolution_mappings(resolved, reporter)
+        last_unmapped_files = [file_name for file_name in missing_files if file_name not in resolved]
         packages = sorted(
-            {
-                package
-                for package in [*resolved.values(), *direct_packages]
-                if package not in attempted_packages
-            }
+            package
+            for package in set(resolved.values()) | set(direct_packages)
+            if package not in attempted_packages
         )
-        retry += 1
-        log_autoinstall_resolution(missing_files, resolved, packages, retry)
         if not packages:
+            if last_unmapped_files:
+                failure_kind = "unmapped"
+            elif primary_latex_error(log_path, tex_file, missing_files):
+                failure_kind = "ordinary"
+            else:
+                failure_kind = "unidentified"
+            break
+        if install_rounds >= MAX_INSTALL_ROUNDS:
+            failure_kind = "ceiling"
             break
 
-        install_result = install_tinytex_packages(root, packages, env)
+        noun = "package" if len(packages) == 1 else "packages"
+        dependency = "dependency" if len(packages) == 1 else "dependencies"
+        qualifier = f"required {noun}" if install_rounds == 0 else f"additional {dependency}"
+        reporter.status(f"Installing {len(packages)} {qualifier}...")
+        install_result = install_tinytex_packages(root, packages, env, reporter)
         attempted_packages.update(packages)
+        install_rounds += 1
         if install_result.returncode != 0:
-            print("TinyTeX autoinstall: package install failed.")
-            return install_result
+            return BuildOutcome(
+                install_result.returncode,
+                monotonic() - started_at,
+                pdf_snapshot(pdf_path) != pdf_before,
+                failure_kind="install_failed",
+                missing_files=tuple(missing_files),
+                unmapped_files=tuple(last_unmapped_files),
+                primary_error=primary_latex_error(log_path, tex_file, missing_files),
+            )
+        result = run_tinytex_compile(engine, latexmk_args, root, force=True, env=env, reporter=reporter)
+    else:
+        failure_kind = None
 
-        print(f"TinyTeX autoinstall: retrying build ({retry}/{AUTO_INSTALL_RETRIES}).")
-        result = run_tinytex_compile(engine, latexmk_args, root, force=True, env=env)
+    elapsed = monotonic() - started_at
+    pdf_changed = pdf_snapshot(pdf_path) != pdf_before
+    if result.returncode == 0:
+        return BuildOutcome(0, elapsed, pdf_changed)
+    return BuildOutcome(
+        result.returncode,
+        elapsed,
+        pdf_changed,
+        failure_kind=failure_kind,
+        missing_files=tuple(last_missing_files),
+        unmapped_files=tuple(last_unmapped_files),
+        primary_error=primary_latex_error(log_path, tex_file, last_missing_files),
+    )
 
-    if result.returncode == 0 and auto_clean:
-        cleanup_auxiliary_files(tex_file)
-    return result
+
+def report_failure(outcome: BuildOutcome, tex_file: str, auto_install: bool, reporter: Reporter) -> None:
+    base, _ = os.path.splitext(os.fspath(tex_file))
+    log_path = f"{base}.log"
+    error = outcome.primary_error
+    if error is not None:
+        location = ""
+        if error.file and error.line:
+            location = f" at {error.file}:{error.line}"
+        reporter.error(f"Build failed: {error.message}{location}")
+    elif outcome.failure_kind == "install_failed":
+        reporter.error("Build failed: TeX Live package installation failed.")
+    else:
+        reporter.error("Build failed: no primary LaTeX error could be identified.")
+
+    if outcome.failure_kind == "disabled" and not auto_install:
+        reporter.error("Automatic package installation is disabled by --no-install.")
+    elif outcome.failure_kind == "install_failed" and error is not None:
+        reporter.error("TeX Live package installation failed.")
+    elif outcome.failure_kind == "unmapped":
+        reporter.error(f"Could not map missing TeX files to packages: {', '.join(outcome.unmapped_files)}")
+    elif outcome.failure_kind == "ceiling":
+        reporter.error(f"Automatic package installation stopped after {MAX_INSTALL_ROUNDS} rounds.")
+    elif outcome.failure_kind == "unidentified":
+        reporter.error("No missing TeX package could be identified.")
+    if Path(log_path).is_file():
+        reporter.error(f"See {log_path} for complete diagnostics.")
+    if outcome.pdf_changed:
+        reporter.error(f"{base}.pdf may be incomplete.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -789,22 +1020,52 @@ def main(argv: list[str] | None = None) -> int:
     if "--version" in argv:
         print(__version__)
         return 0
-    if argv == ["install-tinytex"]:
-        return install_tinytex()
+    if "install-tinytex" in argv:
+        remaining = [arg for arg in argv if arg != "--verbose"]
+        if remaining != ["install-tinytex"]:
+            print("Error: install-tinytex only accepts --verbose.", file=sys.stderr)
+            return 1
+        return install_tinytex("--verbose" in argv)
 
+    started_at = monotonic()
+    reporter = Reporter("--verbose" in argv)
     try:
-        engine, auto_clean, auto_install, latexmk_args, bib_files, tex_file = parse_args(argv)
-        detected_tex_file = detect_tex_file(latexmk_args, tex_file)
-        check_bibliography(detected_tex_file, bib_files)
-        result = run_tinytex_backend(engine, auto_clean, auto_install, detected_tex_file, latexmk_args)
+        engine, clean, verbose, auto_install, latexmk_args, bib_files, tex_file = parse_args(argv)
+        reporter = Reporter(verbose)
+        detected_tex_file = detect_tex_file(latexmk_args, tex_file, reporter)
+        check_bibliography(detected_tex_file, bib_files, reporter)
+        outcome = run_tinytex_backend(
+            engine,
+            auto_install,
+            verbose,
+            detected_tex_file,
+            latexmk_args,
+            started_at,
+            reporter,
+        )
     except TexMiniError as error:
-        print(error)
+        reporter.error(str(error))
         return 1
 
-    if result.returncode != 0:
-        report_missing_tex_files(detected_tex_file)
-        print("Build failed, keeping auxiliary files for debugging")
-    return result.returncode
+    base, _ = os.path.splitext(os.fspath(detected_tex_file))
+    if outcome.returncode != 0:
+        report_failure(outcome, detected_tex_file, auto_install, reporter)
+        return outcome.returncode
+
+    if not verbose:
+        for warning in document_warnings(Path(f"{base}.log")):
+            reporter.warning(warning)
+    elapsed = format_elapsed(outcome.elapsed_seconds)
+    if outcome.pdf_changed:
+        reporter.status(f"Built {base}.pdf in {elapsed}")
+        if not clean:
+            reporter.status("Build files retained for faster rebuilds; use --clean to remove them.")
+    else:
+        reporter.status(f"{base}.pdf is up to date ({elapsed})")
+    if clean:
+        cleanup_auxiliary_files(detected_tex_file)
+        reporter.status("Removed auxiliary build files.")
+    return 0
 
 
 if __name__ == "__main__":
