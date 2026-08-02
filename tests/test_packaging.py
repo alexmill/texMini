@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import tomllib
 import unittest
@@ -44,7 +45,7 @@ class PackagingTest(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "0.2.0")
+            self.assertEqual(version.stdout.strip(), "0.2.1")
 
             help_result = subprocess.run(
                 [str(bin_dir / "texmini"), "--help"],
@@ -72,6 +73,24 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual(project["urls"]["Repository"], "https://github.com/alexmill/texMini")
         self.assertIn("Operating System :: MacOS", project["classifiers"])
         self.assertIn("Operating System :: POSIX :: Linux", project["classifiers"])
+
+    def test_sdist_contains_benchmarks_and_compile_fixtures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run(
+                ["uv", "build", "--sdist", "--out-dir", directory],
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=True,
+            )
+            archive = next(Path(directory).glob("texmini-*.tar.gz"))
+            with tarfile.open(archive, "r:gz") as distribution:
+                names = distribution.getnames()
+
+        self.assertTrue(any(name.endswith("/benchmarks/benchmark.py") for name in names))
+        self.assertTrue(any(name.endswith("/tests/fixtures/simple/simple.tex") for name in names))
+        self.assertTrue(any(name.endswith("/tests/fixtures/bibliography/refs.bib") for name in names))
 
     def test_dockerfile_pins_supported_tinytex_archives(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
