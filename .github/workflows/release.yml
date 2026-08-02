@@ -84,16 +84,32 @@ jobs:
         run: |
           test "$(docker run --rm texmini:release-candidate --version)" = "${{ needs.package.outputs.version }}"
           docker run --rm --network none \
-            --user "$(id -u):$(id -g)" \
             -v "$PWD:/work" \
             texmini:release-candidate simple.tex
           docker run --rm --network none \
-            --user "$(id -u):$(id -g)" \
             -v "$PWD:/work" \
             texmini:release-candidate test.tex
+          second_output="$(docker run --rm --network none \
+            -v "$PWD:/work" \
+            texmini:release-candidate test.tex)"
+          printf '%s\n' "$second_output"
+          grep -q "test.pdf is up to date" <<< "$second_output"
+          docker run --rm --network none \
+            -v "$PWD:/work" \
+            texmini:release-candidate --clean test.tex
           test -s simple.pdf
           test -s test.pdf
+          test ! -e test.aux
           test "$(stat -c %u test.pdf)" = "$(id -u)"
+          arbitrary_dir="$RUNNER_TEMP/arbitrary-uid"
+          mkdir -p "$arbitrary_dir"
+          cp simple.tex "$arbitrary_dir/"
+          chmod 777 "$arbitrary_dir"
+          docker run --rm --network none \
+            --user 12345:12345 \
+            -v "$arbitrary_dir:/work" \
+            texmini:release-candidate simple.tex
+          test "$(stat -c %u "$arbitrary_dir/simple.pdf")" = 12345
 
   publish-pypi:
     needs: [package, docker-smoke]
