@@ -416,7 +416,13 @@ def latest_tinytex_asset() -> tuple[str, str, str | None]:
 
     bundle = tinytex_bundle()
     prefix = f"{bundle}-{tinytex_platform_key()}-"
-    with urllib.request.urlopen(TINYTEX_RELEASE_API, timeout=30) as response:
+    request = urllib.request.Request(
+        TINYTEX_RELEASE_API,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": f"texmini/{__version__}"},
+    )
+    if github_token := os.environ.get("GITHUB_TOKEN"):
+        request.add_header("Authorization", f"Bearer {github_token}")
+    with urllib.request.urlopen(request, timeout=30) as response:
         release = json.load(response)
     for asset in release["assets"]:
         name = asset["name"]

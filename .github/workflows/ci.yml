@@ -59,6 +59,7 @@ jobs:
           UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
           TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
           TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex"
           cp simple.tex "$RUNNER_TEMP/engines/pdflatex/"

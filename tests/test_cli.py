@@ -260,6 +260,22 @@ class CliTest(unittest.TestCase):
         with self.assertRaises(cli.TexMiniError):
             cli.validate_tinytex_archive_member(tarfile.TarInfo("../escape"))
 
+    def test_release_lookup_uses_github_token_when_available(self) -> None:
+        release = io.BytesIO(
+            b'{"assets":[{"name":"TinyTeX-0-test-v1.tar.xz","browser_download_url":"https://archive","digest":"sha256:abc"}]}'
+        )
+        with (
+            patch.dict(os.environ, {"GITHUB_TOKEN": "test-token", "TEXMINI_TINYTEX_BUNDLE": "TinyTeX-0"}),
+            patch("texmini.cli.tinytex_platform_key", return_value="test"),
+            patch("urllib.request.urlopen", return_value=release) as urlopen,
+        ):
+            asset = cli.latest_tinytex_asset()
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-token")
+        self.assertEqual(request.get_header("User-agent"), f"texmini/{cli.__version__}")
+        self.assertEqual(asset, ("TinyTeX-0-test-v1.tar.xz", "https://archive", "sha256:abc"))
+
     def _tinytex_archive(self) -> bytes:
         payload = io.BytesIO()
         with tarfile.open(fileobj=payload, mode="w:xz") as archive:
