@@ -1,2 +1,3 @@
 recursive-include benchmarks *.json *.md *.py
-recursive-include tests *.bib *.py *.tex
+recursive-include tests *.bib *.bst *.cls *.py *.sty *.tex
+include tests/fixtures/multifile/latexmkrc

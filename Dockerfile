@@ -41,14 +41,15 @@ RUN set -eux; \
   tex_bin="$(find /opt/TinyTeX/bin -mindepth 1 -maxdepth 1 -type d -print -quit)"; \
   PATH="${tex_bin}:$PATH" tlmgr update --self; \
   PATH="${tex_bin}:$PATH" tlmgr install \
-    geometry amsmath biblatex biber csquotes xcolor hyperref pgf framed enumitem microtype; \
+    geometry amsmath biblatex biber bibtex natbib csquotes xcolor hyperref pgf framed enumitem microtype \
+    makeindex imakeidx glossaries glossaries-extra xindy nomencl koma-script minted; \
   chmod -R a+rwX /opt/TinyTeX; \
   rm "/tmp/${archive}"
 
 FROM ${PYTHON_IMAGE} AS runtime
 
 RUN apt-get update \
-  && apt-get install --yes --no-install-recommends ca-certificates fontconfig perl util-linux \
+  && apt-get install --yes --no-install-recommends ca-certificates fontconfig libncurses6 perl util-linux \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=python-build /opt/texmini /opt/texmini
 COPY --from=tinytex /opt/TinyTeX /opt/TinyTeX
