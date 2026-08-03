@@ -1,6 +1,7 @@
 *
 !Dockerfile
 !docker-entrypoint.sh
+!docker-packages.txt
 !LICENSE
 !README.md
 !pyproject.toml
