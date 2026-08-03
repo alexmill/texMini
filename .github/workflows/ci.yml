@@ -134,9 +134,10 @@ jobs:
           cd "$RUNNER_TEMP/layout"
           "$UV_TOOL_BIN_DIR/texmini" -outdir=build -auxdir=aux -jobname=publication -synctex=1 paper.tex
           test -s build/publication.pdf
-          test -s aux/publication.synctex.gz
+          test -s aux/publication.synctex.gz || test -s build/publication.synctex.gz
           "$UV_TOOL_BIN_DIR/texmini" --clean -outdir=build -auxdir=aux -jobname=publication -synctex=1 paper.tex
           test ! -e aux/publication.synctex.gz
+          test ! -e build/publication.synctex.gz
           test -s build/publication.pdf
       - name: Exercise continuous rebuilding
         if: runner.os == 'Linux'
