@@ -174,7 +174,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=ci-${{ matrix.arch }}
       - name: Verify CLI
         run: docker run --rm texmini:test --version
-      - name: Compile offline
+      - name: Compile with adaptive package installation
         if: matrix.arch == 'amd64'
         run: |
           simple_fixture="$PWD/tests/fixtures/simple"
@@ -186,25 +186,30 @@ jobs:
           nomenclature_fixture="$PWD/tests/fixtures/nomenclature"
           minted_fixture="$PWD/tests/fixtures/minted"
           multifile_fixture="$PWD/tests/fixtures/multifile"
-          docker run --rm --network none \
+          run_texmini() {
+            docker run --rm -v texmini-ci-runtime:/opt/TinyTeX "$@"
+          }
+          simple_output="$(run_texmini \
             -v "$simple_fixture:/work" \
-            texmini:test simple.tex
-          docker run --rm --network none \
+            texmini:test simple.tex)"
+          printf '%s\n' "$simple_output"
+          grep -q "Installing 1 package: geometry" <<< "$simple_output"
+          run_texmini \
             -v "$bibliography_fixture:/work" \
             texmini:test bibliography.tex
-          docker run --rm --network none -v "$bibtex_fixture:/work" texmini:test paper.tex
-          docker run --rm --network none -v "$index_fixture:/work" texmini:test index.tex
-          docker run --rm --network none -v "$glossary_fixture:/work" texmini:test glossary.tex
-          docker run --rm --network none -v "$xindy_fixture:/work" texmini:test glossary.tex
-          docker run --rm --network none -v "$nomenclature_fixture:/work" texmini:test nomenclature.tex
-          docker run --rm --network none -v "$minted_fixture:/work" texmini:test --shell-escape minted.tex
-          docker run --rm --network none -v "$multifile_fixture:/work" texmini:test main.tex
-          second_output="$(docker run --rm --network none \
+          run_texmini -v "$bibtex_fixture:/work" texmini:test paper.tex
+          run_texmini -v "$index_fixture:/work" texmini:test index.tex
+          run_texmini -v "$glossary_fixture:/work" texmini:test glossary.tex
+          run_texmini -v "$xindy_fixture:/work" texmini:test glossary.tex
+          run_texmini -v "$nomenclature_fixture:/work" texmini:test nomenclature.tex
+          run_texmini -v "$minted_fixture:/work" texmini:test --shell-escape minted.tex
+          run_texmini -v "$multifile_fixture:/work" texmini:test main.tex
+          second_output="$(run_texmini \
             -v "$bibliography_fixture:/work" \
             texmini:test bibliography.tex)"
           printf '%s\n' "$second_output"
           grep -q "bibliography.pdf is up to date" <<< "$second_output"
-          docker run --rm --network none \
+          run_texmini \
             -v "$bibliography_fixture:/work" \
             texmini:test --clean bibliography.tex
           test -s "$simple_fixture/simple.pdf"
@@ -225,7 +230,7 @@ jobs:
           mkdir -p "$arbitrary_dir"
           cp tests/fixtures/simple/simple.tex "$arbitrary_dir/"
           chmod 777 "$arbitrary_dir"
-          docker run --rm --network none \
+          docker run --rm \
             --user 12345:12345 \
             -v "$arbitrary_dir:/work" \
             texmini:test simple.tex
