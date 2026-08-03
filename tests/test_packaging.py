@@ -130,8 +130,8 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("ghcr.io/astral-sh/uv:0.11.20@sha256:", dockerfile)
         self.assertIn("uv build --wheel", dockerfile)
         self.assertIn('archive="TinyTeX-0-${platform}', dockerfile)
-        self.assertIn("latex-bin latexmk metafont mfware", dockerfile)
-        self.assertIn("biblatex biber bibtex natbib csquotes", dockerfile)
+        self.assertIn("COPY docker-packages.txt /tmp/docker-packages.txt", dockerfile)
+        self.assertIn("tlmgr install < /tmp/docker-packages.txt", dockerfile)
         self.assertNotIn("makeindex imakeidx glossaries", dockerfile)
         self.assertNotIn("enumitem microtype", dockerfile)
         self.assertIn("curl fontconfig", dockerfile)
@@ -144,6 +144,28 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("COPY --chmod=755 docker-entrypoint.sh", dockerfile)
         self.assertIn('ENTRYPOINT ["texmini-entrypoint"]', dockerfile)
         self.assertNotIn("nix", dockerfile.lower())
+
+    def test_docker_build_consumes_the_checked_in_package_manifest(self) -> None:
+        dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        packages = (
+            (ROOT / "docker-packages.txt").read_text(encoding="utf-8").splitlines()
+        )
+
+        self.assertEqual(
+            packages,
+            [
+                "latex-bin",
+                "latexmk",
+                "metafont",
+                "mfware",
+                "biblatex",
+                "biber",
+                "bibtex",
+                "natbib",
+                "csquotes",
+            ],
+        )
+        self.assertNotIn("tlmgr install \\\n+    latex-bin", dockerfile)
 
     def test_docker_entrypoint_matches_work_directory_ownership(self) -> None:
         entrypoint = (ROOT / "docker-entrypoint.sh").read_text(encoding="utf-8")
@@ -165,7 +187,18 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("platforms: linux/amd64,linux/arm64", workflow)
         self.assertIn("push-to-registry: true", workflow)
 
-    def test_docker_context_contains_only_python_package_inputs(self) -> None:
+    def test_ci_and_release_share_the_docker_smoke_matrix(self) -> None:
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        release = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
+        smoke_script = ROOT / "tests" / "smoke_docker.sh"
+
+        self.assertTrue(smoke_script.stat().st_mode & 0o111)
+        self.assertEqual(ci.count("tests/smoke_docker.sh"), 1)
+        self.assertEqual(release.count("tests/smoke_docker.sh"), 1)
+
+    def test_docker_context_contains_only_required_build_inputs(self) -> None:
         dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
 
         self.assertEqual(
@@ -174,6 +207,7 @@ class PackagingTest(unittest.TestCase):
                 "*",
                 "!Dockerfile",
                 "!docker-entrypoint.sh",
+                "!docker-packages.txt",
                 "!LICENSE",
                 "!README.md",
                 "!pyproject.toml",
