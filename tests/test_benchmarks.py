@@ -17,7 +17,10 @@ class BenchmarkFixtureTest(unittest.TestCase):
             os.link(source, root / "linked")
 
             self.assertEqual(benchmark.directory_size(root), 8192)
-            self.assertEqual(benchmark.directory_size(root, allocated=True), source.stat().st_blocks * 512)
+            self.assertEqual(
+                benchmark.directory_size(root, allocated=True),
+                source.stat().st_blocks * 512,
+            )
 
     def test_random_package_fixture_is_seeded_and_unique(self) -> None:
         first = benchmark.random_package_selection()
@@ -48,7 +51,9 @@ class BenchmarkFixtureTest(unittest.TestCase):
             benchmark.write_fixture("random-packages", random_packages)
 
             common_source = (common / "common.tex").read_text(encoding="utf-8")
-            random_source = (random_packages / "random-packages.tex").read_text(encoding="utf-8")
+            random_source = (random_packages / "random-packages.tex").read_text(
+                encoding="utf-8"
+            )
 
         self.assertIn("Common packages", common_source)
         self.assertIn(",".join(benchmark.random_package_selection()), random_source)

@@ -42,7 +42,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -61,12 +61,14 @@ jobs:
           TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex" "$RUNNER_TEMP/subdirectory/docs"
+          mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex" "$RUNNER_TEMP/subdirectory/docs" "$RUNNER_TEMP/common" "$RUNNER_TEMP/layout"
           cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/pdflatex/"
           cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/lualatex/"
           cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/xelatex/"
+          cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/layout/paper.tex"
           cp tests/fixtures/bibliography/bibliography.tex "$RUNNER_TEMP/subdirectory/docs/paper.tex"
           cp tests/fixtures/bibliography/refs.bib "$RUNNER_TEMP/subdirectory/docs/"
+          cp -R tests/fixtures/bibtex tests/fixtures/biblatex-bibtex tests/fixtures/index tests/fixtures/glossary tests/fixtures/glossary-xindy tests/fixtures/glossaries-extra tests/fixtures/nomenclature tests/fixtures/minted tests/fixtures/multifile tests/fixtures/engine-directives "$RUNNER_TEMP/common/"
           cd "$RUNNER_TEMP/engines/pdflatex"
           "$UV_TOOL_BIN_DIR/texmini" --engine pdflatex simple.tex
           test -s simple.pdf
@@ -93,6 +95,59 @@ jobs:
           "$UV_TOOL_BIN_DIR/texmini" --clean docs/paper.tex
           test ! -e docs/paper.aux
           test ! -e docs/paper.log
+          cd "$RUNNER_TEMP/common/bibtex"
+          "$UV_TOOL_BIN_DIR/texmini" paper.tex
+          test -s paper.bbl
+          cd "$RUNNER_TEMP/common/biblatex-bibtex"
+          "$UV_TOOL_BIN_DIR/texmini" paper.tex
+          test -s paper.bbl
+          cd "$RUNNER_TEMP/common/index"
+          "$UV_TOOL_BIN_DIR/texmini" index.tex
+          test -s index.ind
+          test -s people.ind
+          cd "$RUNNER_TEMP/common/glossary"
+          "$UV_TOOL_BIN_DIR/texmini" glossary.tex
+          test -s glossary.gls
+          test -s glossary.acr
+          cd "$RUNNER_TEMP/common/glossary-xindy"
+          "$UV_TOOL_BIN_DIR/texmini" glossary.tex
+          test -s glossary.gls
+          cd "$RUNNER_TEMP/common/glossaries-extra"
+          "$UV_TOOL_BIN_DIR/texmini" glossary.tex
+          test -s glossary.gls
+          cd "$RUNNER_TEMP/common/nomenclature"
+          "$UV_TOOL_BIN_DIR/texmini" nomenclature.tex
+          test -s nomenclature.nls
+          cd "$RUNNER_TEMP/common/minted"
+          if "$UV_TOOL_BIN_DIR/texmini" minted.tex 2>minted-error.txt; then exit 1; fi
+          grep -q -- "--shell-escape" minted-error.txt
+          "$UV_TOOL_BIN_DIR/texmini" --shell-escape minted.tex
+          test -s minted.pdf
+          cd "$RUNNER_TEMP/common/multifile"
+          "$UV_TOOL_BIN_DIR/texmini" main.tex
+          test -s build/publication.pdf
+          cd "$RUNNER_TEMP/common/engine-directives"
+          "$UV_TOOL_BIN_DIR/texmini" lualatex.tex
+          "$UV_TOOL_BIN_DIR/texmini" xelatex.tex
+          test -s lualatex.pdf
+          test -s xelatex.pdf
+          cd "$RUNNER_TEMP/layout"
+          "$UV_TOOL_BIN_DIR/texmini" -outdir=build -auxdir=aux -jobname=publication -synctex=1 paper.tex
+          test -s build/publication.pdf
+          test -s aux/publication.synctex.gz || test -s build/publication.synctex.gz
+          "$UV_TOOL_BIN_DIR/texmini" --clean -outdir=build -auxdir=aux -jobname=publication -synctex=1 paper.tex
+          test ! -e aux/publication.synctex.gz
+          test ! -e build/publication.synctex.gz
+          test -s build/publication.pdf
+      - name: Exercise continuous rebuilding
+        if: runner.os == 'Linux'
+        env:
+          UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
+          UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
+          TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
+          TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run --frozen python tests/watch_smoke.py "$UV_TOOL_BIN_DIR/texmini" tests/fixtures/bibliography
 
   docker:
     strategy:
@@ -124,12 +179,26 @@ jobs:
         run: |
           simple_fixture="$PWD/tests/fixtures/simple"
           bibliography_fixture="$PWD/tests/fixtures/bibliography"
+          bibtex_fixture="$PWD/tests/fixtures/bibtex"
+          index_fixture="$PWD/tests/fixtures/index"
+          glossary_fixture="$PWD/tests/fixtures/glossary"
+          xindy_fixture="$PWD/tests/fixtures/glossary-xindy"
+          nomenclature_fixture="$PWD/tests/fixtures/nomenclature"
+          minted_fixture="$PWD/tests/fixtures/minted"
+          multifile_fixture="$PWD/tests/fixtures/multifile"
           docker run --rm --network none \
             -v "$simple_fixture:/work" \
             texmini:test simple.tex
           docker run --rm --network none \
             -v "$bibliography_fixture:/work" \
             texmini:test bibliography.tex
+          docker run --rm --network none -v "$bibtex_fixture:/work" texmini:test paper.tex
+          docker run --rm --network none -v "$index_fixture:/work" texmini:test index.tex
+          docker run --rm --network none -v "$glossary_fixture:/work" texmini:test glossary.tex
+          docker run --rm --network none -v "$xindy_fixture:/work" texmini:test glossary.tex
+          docker run --rm --network none -v "$nomenclature_fixture:/work" texmini:test nomenclature.tex
+          docker run --rm --network none -v "$minted_fixture:/work" texmini:test --shell-escape minted.tex
+          docker run --rm --network none -v "$multifile_fixture:/work" texmini:test main.tex
           second_output="$(docker run --rm --network none \
             -v "$bibliography_fixture:/work" \
             texmini:test bibliography.tex)"
@@ -140,6 +209,13 @@ jobs:
             texmini:test --clean bibliography.tex
           test -s "$simple_fixture/simple.pdf"
           test -s "$bibliography_fixture/bibliography.pdf"
+          test -s "$bibtex_fixture/paper.bbl"
+          test -s "$index_fixture/people.ind"
+          test -s "$glossary_fixture/glossary.gls"
+          test -s "$xindy_fixture/glossary.gls"
+          test -s "$nomenclature_fixture/nomenclature.nls"
+          test -s "$minted_fixture/minted.pdf"
+          test -s "$multifile_fixture/build/publication.pdf"
           test ! -e "$bibliography_fixture/bibliography.aux"
           test "$(stat -c %u "$bibliography_fixture/bibliography.pdf")" = "$(id -u)"
       - name: Preserve explicit arbitrary UID behavior
