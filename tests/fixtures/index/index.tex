@@ -1,0 +1,9 @@
+\documentclass{article}
+\usepackage{imakeidx}
+\makeindex
+\makeindex[name=people,title=People]
+\begin{document}
+LaTeX\index{LaTeX} was created by Leslie Lamport\index[people]{Lamport, Leslie}.
+\printindex
+\printindex[people]
+\end{document}

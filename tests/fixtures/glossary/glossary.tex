@@ -1,0 +1,9 @@
+\documentclass{article}
+\usepackage[acronym]{glossaries}
+\makeglossaries
+\newglossaryentry{latex}{name=LaTeX,description={a document preparation system}}
+\newacronym{pdf}{PDF}{Portable Document Format}
+\begin{document}
+\Gls{latex} produces a \gls{pdf}.
+\printglossaries
+\end{document}

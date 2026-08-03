@@ -1,0 +1,20 @@
+# These rules follow latexmk's maintained examples and load before project
+# configuration, so a project's own rules remain authoritative.
+add_cus_dep('acn', 'acr', 0, 'texmini_makeglossaries');
+add_cus_dep('glo', 'gls', 0, 'texmini_makeglossaries');
+
+sub texmini_makeglossaries {
+    my ($base_name, $path) = fileparse($_[0]);
+    return system 'makeglossaries', '-d', $path, $base_name;
+}
+
+add_cus_dep('nlo', 'nls', 0, 'texmini_makenomenclature');
+
+sub texmini_makenomenclature {
+    return system 'makeindex', "$_[0].nlo",
+        '-s', 'nomencl.ist',
+        '-o', "$_[0].nls",
+        '-t', "$_[0].nlg";
+}
+
+push @generated_exts, 'acr', 'acn', 'alg', 'glg', 'glo', 'gls', 'nlg', 'nlo', 'nls';

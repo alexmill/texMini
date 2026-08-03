@@ -16,46 +16,73 @@ from texmini import cli
 
 
 class CliTest(unittest.TestCase):
-    def test_parse_args_defaults_to_incremental_pdflatex(self) -> None:
+    def test_parse_args_defaults_to_incremental_build(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            engine, clean, verbose, auto_install, args, bib_files, tex_file = cli.parse_args(
-                ["paper.tex", "refs.bib"]
-            )
+            config = cli.parse_args(["paper.tex", "refs.bib"])
 
-        self.assertEqual(engine, "pdflatex")
-        self.assertFalse(clean)
-        self.assertFalse(verbose)
-        self.assertTrue(auto_install)
-        self.assertEqual(args, ["paper.tex"])
-        self.assertEqual(bib_files, ["refs.bib"])
-        self.assertEqual(tex_file, "paper.tex")
+        self.assertIsNone(config.engine)
+        self.assertFalse(config.clean)
+        self.assertFalse(config.verbose)
+        self.assertTrue(config.auto_install)
+        self.assertFalse(config.watch)
+        self.assertFalse(config.shell_escape)
+        self.assertEqual(config.latexmk_args, ["paper.tex"])
+        self.assertEqual(config.bib_files, ["refs.bib"])
+        self.assertEqual(config.tex_file, "paper.tex")
 
     def test_parse_args_enables_clean_and_verbose(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            _, clean, verbose, _, args, _, _ = cli.parse_args(["--clean", "--verbose", "paper.tex"])
+            config = cli.parse_args(["--clean", "--verbose", "paper.tex"])
 
-        self.assertTrue(clean)
-        self.assertTrue(verbose)
-        self.assertEqual(args, ["paper.tex"])
+        self.assertTrue(config.clean)
+        self.assertTrue(config.verbose)
+        self.assertEqual(config.latexmk_args, ["paper.tex"])
 
     def test_parse_args_uses_new_clean_environment(self) -> None:
-        with patch.dict(os.environ, {"TEXMINI_CLEAN": "true", "TEXMINI_AUTO_CLEAN": "false"}, clear=True):
-            _, clean, _, _, _, _, _ = cli.parse_args(["paper.tex"])
+        with patch.dict(
+            os.environ,
+            {"TEXMINI_CLEAN": "true", "TEXMINI_AUTO_CLEAN": "false"},
+            clear=True,
+        ):
+            config = cli.parse_args(["paper.tex"])
 
-        self.assertTrue(clean)
+        self.assertTrue(config.clean)
 
     def test_parse_args_disables_auto_install(self) -> None:
         with patch.dict(os.environ, {"TEXMINI_AUTO_INSTALL": "false"}, clear=True):
-            _, _, _, auto_install, _, _, _ = cli.parse_args(["paper.tex"])
+            config = cli.parse_args(["paper.tex"])
 
-        self.assertFalse(auto_install)
+        self.assertFalse(config.auto_install)
 
     def test_parse_args_selects_supported_engine(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            engine, _, _, _, args, _, _ = cli.parse_args(["--engine", "lualatex", "paper.tex"])
+            config = cli.parse_args(["--engine", "lualatex", "paper.tex"])
 
-        self.assertEqual(engine, "lualatex")
-        self.assertEqual(args, ["paper.tex"])
+        self.assertEqual(config.engine, "lualatex")
+        self.assertEqual(config.latexmk_args, ["paper.tex"])
+
+    def test_parse_args_supports_watch_shell_escape_and_synctex(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            config = cli.parse_args(
+                ["-pvc", "-shell-escape", "-synctex=1", "paper.tex"]
+            )
+
+        self.assertTrue(config.watch)
+        self.assertTrue(config.shell_escape)
+        self.assertEqual(
+            config.latexmk_args, ["-shell-escape", "-synctex=1", "paper.tex"]
+        )
+
+    def test_parse_args_rejects_clean_watch_and_viewer_controls(self) -> None:
+        with self.assertRaisesRegex(cli.TexMiniError, "--clean cannot be combined"):
+            cli.parse_args(["--clean", "--watch", "paper.tex"])
+        with self.assertRaisesRegex(cli.TexMiniError, "does not launch or control"):
+            cli.parse_args(["--watch", "-view=pdf", "paper.tex"])
+
+    def test_parse_args_accepts_view_none_in_watch_mode(self) -> None:
+        config = cli.parse_args(["--watch", "-view=none", "paper.tex"])
+        self.assertTrue(config.watch)
+        self.assertNotIn("-view=none", config.latexmk_args)
 
     def test_detect_tex_file_auto_detects_single_source(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -75,12 +102,56 @@ class CliTest(unittest.TestCase):
         with self.assertRaisesRegex(cli.TexMiniError, "missing.tex.*does not exist"):
             cli.detect_tex_file(["missing.tex"], "missing.tex")
 
+    def test_detect_tex_file_selects_unique_main_document(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                Path("chapter.tex").write_text("Chapter", encoding="utf-8")
+                Path("draft.tex").write_text(
+                    "% \\documentclass{book}\n", encoding="utf-8"
+                )
+                Path("main.tex").write_text("\\documentclass{book}\n", encoding="utf-8")
+                args: list[str] = []
+                detected = cli.detect_tex_file(args, None)
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(detected, "main.tex")
+
+    def test_engine_directive_and_explicit_precedence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text(
+                "% !TeX program = xelatex\n\\documentclass{article}\n", encoding="utf-8"
+            )
+
+            self.assertEqual(
+                cli.resolve_engine(None, str(source), cli.Reporter()), "xelatex"
+            )
+            self.assertEqual(
+                cli.resolve_engine("lualatex", str(source), cli.Reporter()), "lualatex"
+            )
+
+    def test_unsupported_engine_directive_warns_and_uses_pdflatex(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text("% !TEX TS-program = context\n", encoding="utf-8")
+            errors = io.StringIO()
+            with redirect_stderr(errors):
+                engine = cli.resolve_engine(None, str(source), cli.Reporter())
+
+        self.assertEqual(engine, "pdflatex")
+        self.assertIn("unsupported TeX program 'context'", errors.getvalue())
+
     def test_explicit_missing_bibliography_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "paper.tex"
             source.write_text("\\bibliography{missing}\n", encoding="utf-8")
             with self.assertRaisesRegex(cli.TexMiniError, "not found"):
-                cli.check_bibliography(str(source), [str(Path(directory) / "missing.bib")])
+                cli.check_bibliography(
+                    str(source), [str(Path(directory) / "missing.bib")]
+                )
 
     def test_source_cache_refreshes_after_change(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -95,12 +166,21 @@ class CliTest(unittest.TestCase):
             source = Path(directory) / "paper.tex"
             source.write_text(
                 "\\documentclass{memoir}\n\\usepackage{geometry,microtype}\n"
-                "\\usepackage[backend=biber]{biblatex}\n",
+                "\\usepackage[backend=biber]{biblatex}\n\\bibliographystyle{plainnat}\n",
                 encoding="utf-8",
             )
             files, packages = cli.tex_source_requirements(str(source))
 
-        self.assertEqual(files, ["memoir.cls", "geometry.sty", "microtype.sty", "biblatex.sty"])
+        self.assertEqual(
+            files,
+            [
+                "memoir.cls",
+                "geometry.sty",
+                "microtype.sty",
+                "biblatex.sty",
+                "plainnat.bst",
+            ],
+        )
         self.assertEqual(packages, ["biber"])
 
     def test_source_requirements_ignore_commented_directives(self) -> None:
@@ -119,6 +199,31 @@ class CliTest(unittest.TestCase):
         self.assertEqual(packages, [])
         self.assertFalse(cli.source_uses_bibliography("% \\addbibresource{refs.bib}\n"))
 
+    def test_source_requirements_follow_local_inputs_and_detect_tools(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "main.tex").write_text(
+                "\\documentclass{article}\n\\input{chapter}\n\\bibliography{refs}\n",
+                encoding="utf-8",
+            )
+            (root / "chapter.tex").write_text(
+                "\\usepackage[xindy]{glossaries}\n\\makeglossaries\n"
+                "\\usepackage{imakeidx,minted}\n\\makeindex\n",
+                encoding="utf-8",
+            )
+
+            requirements = cli.analyze_source_requirements(str(root / "main.tex"))
+
+        self.assertIn("glossaries.sty", requirements.files)
+        self.assertIn("imakeidx.sty", requirements.files)
+        self.assertEqual(
+            requirements.tools, ("bibtex", "makeglossaries", "xindy", "makeindex")
+        )
+        self.assertTrue(requirements.uses_minted)
+        self.assertEqual(
+            {path.name for path in requirements.sources}, {"main.tex", "chapter.tex"}
+        )
+
     def test_bibliography_discovery_uses_source_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source_directory = Path(directory) / "docs"
@@ -131,6 +236,31 @@ class CliTest(unittest.TestCase):
                 cli.check_bibliography(str(source), [])
 
         self.assertEqual(errors.getvalue(), "")
+
+    def test_missing_source_files_excludes_recursive_project_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "tex").mkdir()
+            source = root / "paper.tex"
+            source.write_text(
+                "\\documentclass{publisher}\n\\bibliographystyle{localplain}\n",
+                encoding="utf-8",
+            )
+            (root / "tex" / "publisher.cls").write_text("local", encoding="utf-8")
+            (root / "tex" / "localplain.bst").write_text("local", encoding="utf-8")
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                missing = cli.missing_tinytex_source_files(
+                    Path("TinyTeX"),
+                    "paper.tex",
+                    env={},
+                    source_files=["publisher.cls", "localplain.bst"],
+                )
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(missing, [])
 
     def test_log_requirements_extract_missing_file_font_and_biber(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -146,12 +276,28 @@ class CliTest(unittest.TestCase):
         self.assertEqual(files, ["geometry.sty", "tcrm1000.tfm"])
         self.assertEqual(packages, ["biber"])
 
+    def test_log_requirements_ignore_optional_missing_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "paper.log"
+            log.write_text(
+                "Package biblatex Info: ... file 'biblatex-dm.cfg' not found.\n"
+                "File 'optional.cfg' not found, skipping.\n",
+                encoding="utf-8",
+            )
+
+            files, packages = cli.tex_log_requirements(log)
+
+        self.assertEqual(files, [])
+        self.assertEqual(packages, [])
+
     def test_resolver_uses_cached_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             cache = Path(directory) / "map.json"
             cache.write_text('{"custom.sty": "custom-package"}\n', encoding="utf-8")
             with patch("texmini.cli.run_command") as run:
-                resolved = cli.resolve_tinytex_packages(Path("TinyTeX"), ["custom.sty"], cache, env={})
+                resolved = cli.resolve_tinytex_packages(
+                    Path("TinyTeX"), ["custom.sty"], cache, env={}
+                )
 
         self.assertEqual(resolved, {"custom.sty": "custom-package"})
         run.assert_not_called()
@@ -159,9 +305,14 @@ class CliTest(unittest.TestCase):
     def test_resolver_uses_tlmgr_search_and_updates_cache(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             cache = Path(directory) / "map.json"
-            result = SimpleNamespace(returncode=0, stdout="custom-package: texmf-dist/tex/latex/custom/custom.sty\n")
+            result = SimpleNamespace(
+                returncode=0,
+                stdout="custom-package: texmf-dist/tex/latex/custom/custom.sty\n",
+            )
             with patch("texmini.cli.run_command", return_value=result):
-                resolved = cli.resolve_tinytex_packages(Path("TinyTeX"), ["custom.sty"], cache, env={})
+                resolved = cli.resolve_tinytex_packages(
+                    Path("TinyTeX"), ["custom.sty"], cache, env={}
+                )
 
             self.assertEqual(resolved, {"custom.sty": "custom-package"})
             self.assertIn("custom-package", cache.read_text(encoding="utf-8"))
@@ -170,7 +321,10 @@ class CliTest(unittest.TestCase):
         reporter = cli.Reporter()
         with (
             patch("texmini.cli.executable_on_path_with_env", return_value=None),
-            patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
+            patch(
+                "texmini.cli.install_tinytex_packages",
+                return_value=SimpleNamespace(returncode=0),
+            ) as install,
             redirect_stdout(io.StringIO()),
         ):
             cli.ensure_tinytex_engine(Path("TinyTeX"), "xelatex", {}, reporter)
@@ -178,17 +332,19 @@ class CliTest(unittest.TestCase):
         self.assertEqual(install.call_args.args[1], ["xetex"])
 
     def test_platform_selects_musl_linux_asset(self) -> None:
-        with patch("sys.platform", "linux"), patch("platform.machine", return_value="x86_64"), patch(
-            "platform.libc_ver", return_value=("musl", "1.2")
+        with (
+            patch("sys.platform", "linux"),
+            patch("platform.machine", return_value="x86_64"),
+            patch("platform.libc_ver", return_value=("musl", "1.2")),
         ):
             self.assertEqual(cli.tinytex_platform_key(), "linuxmusl-x86_64")
 
     def test_no_clean_is_passed_to_latexmk_instead_of_recognized(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            _, clean, _, _, args, _, _ = cli.parse_args(["--no-clean", "paper.tex"])
+            config = cli.parse_args(["--no-clean", "paper.tex"])
 
-        self.assertFalse(clean)
-        self.assertEqual(args, ["--no-clean", "paper.tex"])
+        self.assertFalse(config.clean)
+        self.assertEqual(config.latexmk_args, ["--no-clean", "paper.tex"])
 
     def test_help_describes_calm_cli_options(self) -> None:
         output = io.StringIO()
@@ -197,6 +353,8 @@ class CliTest(unittest.TestCase):
 
         text = output.getvalue()
         self.assertIn("--clean", text)
+        self.assertIn("--watch", text)
+        self.assertIn("--shell-escape", text)
         self.assertIn("--verbose", text)
         self.assertIn("--no-install", text)
         self.assertNotIn("--no-clean", text)
@@ -237,7 +395,9 @@ class CliTest(unittest.TestCase):
             reporter.observe_output("package repository not verified: gpg unavailable")
             reporter.observe_output("package repository not verified: gpg unavailable")
 
-        self.assertEqual(errors.getvalue().count("could not verify repository signatures"), 1)
+        self.assertEqual(
+            errors.getvalue().count("could not verify repository signatures"), 1
+        )
         self.assertNotIn("package repository", errors.getvalue())
 
     def test_cleanup_keeps_sources_pdf_and_unrelated_files(self) -> None:
@@ -260,6 +420,74 @@ class CliTest(unittest.TestCase):
             self.assertFalse((root / "paper.log").exists())
             self.assertFalse((root / "missfont.log").exists())
 
+    def test_cleanup_uses_resolved_layout_and_removes_extended_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "paper.tex"
+            aux_dir = root / "aux"
+            out_dir = root / "build"
+            aux_dir.mkdir()
+            out_dir.mkdir()
+            source.write_text("source", encoding="utf-8")
+            (out_dir / "publication.pdf").write_text("pdf", encoding="utf-8")
+            for suffix in ("idx", "ind", "gls", "nls", "synctex.gz", "xdy"):
+                (aux_dir / f"publication.{suffix}").write_text(
+                    "state", encoding="utf-8"
+                )
+            (aux_dir / "publication.fdb_latexmk").write_text(
+                '["makeindex people.idx"] "people.ilg" "people.ind"\n',
+                encoding="utf-8",
+            )
+            (root / "people.ilg").write_text("state", encoding="utf-8")
+            (root / "people.ind").write_text("state", encoding="utf-8")
+            minted = aux_dir / "_minted-publication"
+            minted.mkdir()
+            (minted / "cache.pygtex").write_text("cache", encoding="utf-8")
+            minted_v3 = aux_dir / "_minted"
+            minted_v3.mkdir()
+            (minted_v3 / "cache.minted").write_text("cache", encoding="utf-8")
+            layout = cli.BuildLayout(
+                source,
+                "publication",
+                aux_dir,
+                out_dir,
+                out_dir / "publication.pdf",
+                aux_dir / "publication.log",
+            )
+
+            cli.cleanup_auxiliary_files(str(source), layout)
+
+            self.assertTrue(source.exists())
+            self.assertTrue((out_dir / "publication.pdf").exists())
+            self.assertFalse(minted.exists())
+            self.assertFalse(minted_v3.exists())
+            self.assertFalse(any(aux_dir.iterdir()))
+            self.assertFalse((root / "people.ilg").exists())
+            self.assertFalse((root / "people.ind").exists())
+
+    def test_resolve_build_layout_parses_latexmk_report(self) -> None:
+        report = """Latexmk: Cwd: '/project/docs'
+Latexmk: Normalized aux dir, out dir, out2 dir:
+  '/project/aux', '/project/build', '/project/build'
+Latexmk: Base name of generated files:
+  'publication'
+"""
+        completed = SimpleNamespace(returncode=0, stdout=report)
+        with patch("texmini.cli.run_command", return_value=completed) as run:
+            layout = cli.resolve_build_layout(
+                "pdflatex",
+                ["-outdir=build", "-jobname=publication", "docs/paper.tex"],
+                "docs/paper.tex",
+                {},
+                cli.Reporter(),
+            )
+
+        self.assertEqual(layout.jobname, "publication")
+        self.assertEqual(layout.aux_dir, Path("/project/aux"))
+        self.assertEqual(layout.pdf_path, Path("/project/build/publication.pdf"))
+        self.assertEqual(layout.log_path, Path("/project/aux/publication.log"))
+        self.assertIn("-dir-report-only", run.call_args.args[0])
+
     def test_document_warnings_filters_layout_chatter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "paper.log"
@@ -279,14 +507,20 @@ class CliTest(unittest.TestCase):
     def test_primary_error_extracts_source_line(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "broken.log"
-            log.write_text("! Undefined control sequence.\nl.4 \\doesnotexist\n", encoding="utf-8")
+            log.write_text(
+                "! Undefined control sequence.\nl.4 \\doesnotexist\n", encoding="utf-8"
+            )
 
             error = cli.primary_latex_error(log, "broken.tex", [])
 
-        self.assertEqual(error, cli.PrimaryError("Undefined control sequence", "broken.tex", 4))
+        self.assertEqual(
+            error, cli.PrimaryError("Undefined control sequence", "broken.tex", 4)
+        )
 
     def test_primary_error_prefers_missing_file(self) -> None:
-        error = cli.primary_latex_error(Path("absent.log"), "paper.tex", ["geometry.sty"])
+        error = cli.primary_latex_error(
+            Path("absent.log"), "paper.tex", ["geometry.sty"]
+        )
         self.assertEqual(error, cli.PrimaryError("geometry.sty is missing"))
 
     def test_archive_validation_rejects_escape(self) -> None:
@@ -300,7 +534,10 @@ class CliTest(unittest.TestCase):
             b'{"assets":[{"name":"TinyTeX-0-test-v1.tar.xz","browser_download_url":"https://archive","digest":"sha256:abc"}]}'
         )
         with (
-            patch.dict(os.environ, {"GITHUB_TOKEN": "test-token", "TEXMINI_TINYTEX_BUNDLE": "TinyTeX-0"}),
+            patch.dict(
+                os.environ,
+                {"GITHUB_TOKEN": "test-token", "TEXMINI_TINYTEX_BUNDLE": "TinyTeX-0"},
+            ),
             patch("texmini.cli.tinytex_platform_key", return_value="test"),
             patch("urllib.request.urlopen", return_value=release) as urlopen,
         ):
@@ -309,7 +546,9 @@ class CliTest(unittest.TestCase):
         request = urlopen.call_args.args[0]
         self.assertEqual(request.get_header("Authorization"), "Bearer test-token")
         self.assertEqual(request.get_header("User-agent"), f"texmini/{cli.__version__}")
-        self.assertEqual(asset, ("TinyTeX-0-test-v1.tar.xz", "https://archive", "sha256:abc"))
+        self.assertEqual(
+            asset, ("TinyTeX-0-test-v1.tar.xz", "https://archive", "sha256:abc")
+        )
 
     def _tinytex_archive(self) -> bytes:
         payload = io.BytesIO()
@@ -329,7 +568,10 @@ class CliTest(unittest.TestCase):
             with (
                 patch.dict(os.environ, {"TEXMINI_TINYTEX_BUNDLE": "TinyTeX-1"}),
                 patch("texmini.cli.executable_on_path", return_value="/usr/bin/perl"),
-                patch("texmini.cli.latest_tinytex_asset", return_value=("TinyTeX-1-test.tar.xz", "https://test", digest)),
+                patch(
+                    "texmini.cli.latest_tinytex_asset",
+                    return_value=("TinyTeX-1-test.tar.xz", "https://test", digest),
+                ),
                 patch("urllib.request.urlopen", return_value=io.BytesIO(archive)),
                 patch("texmini.cli.update_tinytex_manager"),
             ):
@@ -346,13 +588,19 @@ class CliTest(unittest.TestCase):
                 patch("texmini.cli.executable_on_path", return_value="/usr/bin/perl"),
                 patch(
                     "texmini.cli.latest_tinytex_asset",
-                    return_value=("TinyTeX-1-test.tar.xz", "https://test", "sha256:" + "0" * 64),
+                    return_value=(
+                        "TinyTeX-1-test.tar.xz",
+                        "https://test",
+                        "sha256:" + "0" * 64,
+                    ),
                 ),
                 patch("urllib.request.urlopen", return_value=io.BytesIO(archive)),
                 patch("tarfile.open") as tar_open,
+                self.assertRaisesRegex(
+                    cli.TexMiniError, "Checksum verification failed"
+                ),
             ):
-                with self.assertRaisesRegex(cli.TexMiniError, "Checksum verification failed"):
-                    cli.install_tinytex_archive(root)
+                cli.install_tinytex_archive(root)
             tar_open.assert_not_called()
             self.assertFalse(root.exists())
 
@@ -363,7 +611,10 @@ class CliTest(unittest.TestCase):
             with (
                 patch.dict(os.environ, {"TEXMINI_TINYTEX_BUNDLE": "TinyTeX-1"}),
                 patch("texmini.cli.executable_on_path", return_value="/usr/bin/perl"),
-                patch("texmini.cli.latest_tinytex_asset", return_value=("TinyTeX-1-test.tar.xz", "https://test", None)),
+                patch(
+                    "texmini.cli.latest_tinytex_asset",
+                    return_value=("TinyTeX-1-test.tar.xz", "https://test", None),
+                ),
                 patch("urllib.request.urlopen", return_value=io.BytesIO(archive)),
                 patch("texmini.cli.update_tinytex_manager"),
             ):
@@ -381,25 +632,45 @@ class CliTest(unittest.TestCase):
     def test_backend_preinstalls_source_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
-            Path(directory, "paper.tex").write_text("\\usepackage{geometry}\n", encoding="utf-8")
+            Path(directory, "paper.tex").write_text(
+                "\\usepackage{geometry}\n", encoding="utf-8"
+            )
             previous = Path.cwd()
             try:
                 os.chdir(directory)
                 with (
                     patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
-                    patch("texmini.cli.missing_tinytex_source_files", return_value=["geometry.sty"]),
-                    patch("texmini.cli.resolve_tinytex_packages", return_value={"geometry.sty": "geometry"}),
-                    patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
-                    patch("texmini.cli.run_tinytex_compile", return_value=SimpleNamespace(returncode=0)),
+                    patch(
+                        "texmini.cli.missing_tinytex_source_files",
+                        return_value=["geometry.sty"],
+                    ),
+                    patch(
+                        "texmini.cli.resolve_tinytex_packages",
+                        return_value={"geometry.sty": "geometry"},
+                    ),
+                    patch(
+                        "texmini.cli.install_tinytex_packages",
+                        return_value=SimpleNamespace(returncode=0),
+                    ) as install,
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.cli.run_tinytex_compile",
+                        return_value=SimpleNamespace(returncode=0),
+                    ),
                 ):
-                    outcome = cli.run_tinytex_backend("pdflatex", True, False, "paper.tex", ["paper.tex"])
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
             finally:
                 os.chdir(previous)
 
         self.assertEqual(outcome.returncode, 0)
         self.assertEqual(install.call_args.args[1], ["geometry"])
 
-    def test_backend_compiles_in_source_directory(self) -> None:
+    def test_backend_uses_latexmk_cd_from_project_root(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
             source_directory = Path(directory) / "docs"
@@ -409,17 +680,30 @@ class CliTest(unittest.TestCase):
             previous = Path.cwd()
             try:
                 os.chdir(directory)
+                layout = cli.BuildLayout(
+                    source,
+                    "paper",
+                    source_directory,
+                    source_directory,
+                    source_directory / "paper.pdf",
+                    source_directory / "paper.log",
+                )
 
                 def compile_document(_engine, arguments, _root, **options):
-                    self.assertEqual(arguments, ["paper.tex"])
-                    self.assertEqual(options["cwd"], Path("docs"))
+                    self.assertEqual(arguments, ["docs/paper.tex"])
+                    self.assertEqual(
+                        options["cwd"].resolve(), Path(directory).resolve()
+                    )
                     (source_directory / "paper.pdf").write_text("pdf", encoding="utf-8")
                     return SimpleNamespace(returncode=0)
 
                 with (
                     patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
                     patch("texmini.cli.missing_tinytex_source_files", return_value=[]),
-                    patch("texmini.cli.run_tinytex_compile", side_effect=compile_document),
+                    patch("texmini.cli.resolve_build_layout", return_value=layout),
+                    patch(
+                        "texmini.cli.run_tinytex_compile", side_effect=compile_document
+                    ),
                 ):
                     outcome = cli.run_tinytex_backend(
                         "pdflatex", True, False, "docs/paper.tex", ["docs/paper.tex"]
@@ -434,9 +718,15 @@ class CliTest(unittest.TestCase):
     def test_backend_continues_beyond_five_dependency_rounds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
-            Path(directory, "paper.tex").write_text("\\documentclass{article}\n", encoding="utf-8")
-            Path(directory, "paper.log").write_text("! LaTeX Error: File `dep.sty' not found.\n", encoding="utf-8")
-            compile_results = [SimpleNamespace(returncode=1) for _ in range(7)] + [SimpleNamespace(returncode=0)]
+            Path(directory, "paper.tex").write_text(
+                "\\documentclass{article}\n", encoding="utf-8"
+            )
+            Path(directory, "paper.log").write_text(
+                "! LaTeX Error: File `dep.sty' not found.\n", encoding="utf-8"
+            )
+            compile_results = [SimpleNamespace(returncode=1) for _ in range(7)] + [
+                SimpleNamespace(returncode=0)
+            ]
             resolutions = [{"dep.sty": f"package-{index}"} for index in range(7)]
             previous = Path.cwd()
             try:
@@ -444,11 +734,24 @@ class CliTest(unittest.TestCase):
                 with (
                     patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
                     patch("texmini.cli.missing_tinytex_source_files", return_value=[]),
-                    patch("texmini.cli.resolve_tinytex_packages", side_effect=resolutions),
-                    patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
-                    patch("texmini.cli.run_tinytex_compile", side_effect=compile_results),
+                    patch(
+                        "texmini.cli.resolve_tinytex_packages", side_effect=resolutions
+                    ),
+                    patch(
+                        "texmini.cli.install_tinytex_packages",
+                        return_value=SimpleNamespace(returncode=0),
+                    ) as install,
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.cli.run_tinytex_compile", side_effect=compile_results
+                    ),
                 ):
-                    outcome = cli.run_tinytex_backend("pdflatex", True, False, "paper.tex", ["paper.tex"])
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
             finally:
                 os.chdir(previous)
 
@@ -458,8 +761,12 @@ class CliTest(unittest.TestCase):
     def test_backend_stops_at_twenty_install_rounds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
-            Path(directory, "paper.tex").write_text("\\documentclass{article}\n", encoding="utf-8")
-            Path(directory, "paper.log").write_text("! LaTeX Error: File `dep.sty' not found.\n", encoding="utf-8")
+            Path(directory, "paper.tex").write_text(
+                "\\documentclass{article}\n", encoding="utf-8"
+            )
+            Path(directory, "paper.log").write_text(
+                "! LaTeX Error: File `dep.sty' not found.\n", encoding="utf-8"
+            )
             previous = Path.cwd()
             try:
                 os.chdir(directory)
@@ -468,12 +775,26 @@ class CliTest(unittest.TestCase):
                     patch("texmini.cli.missing_tinytex_source_files", return_value=[]),
                     patch(
                         "texmini.cli.resolve_tinytex_packages",
-                        side_effect=[{"dep.sty": f"package-{index}"} for index in range(21)],
+                        side_effect=[
+                            {"dep.sty": f"package-{index}"} for index in range(21)
+                        ],
                     ),
-                    patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=0)) as install,
-                    patch("texmini.cli.run_tinytex_compile", return_value=SimpleNamespace(returncode=1)),
+                    patch(
+                        "texmini.cli.install_tinytex_packages",
+                        return_value=SimpleNamespace(returncode=0),
+                    ) as install,
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.cli.run_tinytex_compile",
+                        return_value=SimpleNamespace(returncode=1),
+                    ),
                 ):
-                    outcome = cli.run_tinytex_backend("pdflatex", True, False, "paper.tex", ["paper.tex"])
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
             finally:
                 os.chdir(previous)
 
@@ -483,8 +804,12 @@ class CliTest(unittest.TestCase):
     def test_backend_reports_unmapped_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
-            Path(directory, "paper.tex").write_text("\\documentclass{article}\n", encoding="utf-8")
-            Path(directory, "paper.log").write_text("! LaTeX Error: File `unknown.sty' not found.\n", encoding="utf-8")
+            Path(directory, "paper.tex").write_text(
+                "\\documentclass{article}\n", encoding="utf-8"
+            )
+            Path(directory, "paper.log").write_text(
+                "! LaTeX Error: File `unknown.sty' not found.\n", encoding="utf-8"
+            )
             previous = Path.cwd()
             try:
                 os.chdir(directory)
@@ -492,9 +817,18 @@ class CliTest(unittest.TestCase):
                     patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
                     patch("texmini.cli.missing_tinytex_source_files", return_value=[]),
                     patch("texmini.cli.resolve_tinytex_packages", return_value={}),
-                    patch("texmini.cli.run_tinytex_compile", return_value=SimpleNamespace(returncode=1)),
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.cli.run_tinytex_compile",
+                        return_value=SimpleNamespace(returncode=1),
+                    ),
                 ):
-                    outcome = cli.run_tinytex_backend("pdflatex", True, False, "paper.tex", ["paper.tex"])
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
             finally:
                 os.chdir(previous)
 
@@ -504,18 +838,34 @@ class CliTest(unittest.TestCase):
     def test_no_install_classifies_missing_package_without_installing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
-            Path(directory, "paper.tex").write_text("\\usepackage{geometry}\n", encoding="utf-8")
-            Path(directory, "paper.log").write_text("! LaTeX Error: File `geometry.sty' not found.\n", encoding="utf-8")
+            Path(directory, "paper.tex").write_text(
+                "\\usepackage{geometry}\n", encoding="utf-8"
+            )
+            Path(directory, "paper.log").write_text(
+                "! LaTeX Error: File `geometry.sty' not found.\n", encoding="utf-8"
+            )
             previous = Path.cwd()
             try:
                 os.chdir(directory)
                 with (
                     patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
-                    patch("texmini.cli.missing_tinytex_source_files", return_value=["geometry.sty"]),
+                    patch(
+                        "texmini.cli.missing_tinytex_source_files",
+                        return_value=["geometry.sty"],
+                    ),
                     patch("texmini.cli.install_tinytex_packages") as install,
-                    patch("texmini.cli.run_tinytex_compile", return_value=SimpleNamespace(returncode=2)),
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.cli.run_tinytex_compile",
+                        return_value=SimpleNamespace(returncode=2),
+                    ),
                 ):
-                    outcome = cli.run_tinytex_backend("pdflatex", False, False, "paper.tex", ["paper.tex"])
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", False, False, "paper.tex", ["paper.tex"]
+                    )
             finally:
                 os.chdir(previous)
 
@@ -526,22 +876,155 @@ class CliTest(unittest.TestCase):
     def test_install_failure_returns_tlmgr_status(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
-            Path(directory, "paper.tex").write_text("\\usepackage{geometry}\n", encoding="utf-8")
+            Path(directory, "paper.tex").write_text(
+                "\\usepackage{geometry}\n", encoding="utf-8"
+            )
             previous = Path.cwd()
             try:
                 os.chdir(directory)
                 with (
                     patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
-                    patch("texmini.cli.missing_tinytex_source_files", return_value=["geometry.sty"]),
-                    patch("texmini.cli.resolve_tinytex_packages", return_value={"geometry.sty": "geometry"}),
-                    patch("texmini.cli.install_tinytex_packages", return_value=SimpleNamespace(returncode=7)),
+                    patch(
+                        "texmini.cli.missing_tinytex_source_files",
+                        return_value=["geometry.sty"],
+                    ),
+                    patch(
+                        "texmini.cli.resolve_tinytex_packages",
+                        return_value={"geometry.sty": "geometry"},
+                    ),
+                    patch(
+                        "texmini.cli.install_tinytex_packages",
+                        return_value=SimpleNamespace(returncode=7),
+                    ),
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
                 ):
-                    outcome = cli.run_tinytex_backend("pdflatex", True, False, "paper.tex", ["paper.tex"])
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
             finally:
                 os.chdir(previous)
 
         self.assertEqual(outcome.returncode, 7)
         self.assertEqual(outcome.failure_kind, "install_failed")
+
+    def test_minted_requires_explicit_shell_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._managed_root(directory)
+            Path(directory, "paper.tex").write_text(
+                "\\usepackage{minted}\n", encoding="utf-8"
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                with (
+                    patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
+                    patch("texmini.cli.run_tinytex_compile") as compile_document,
+                ):
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(outcome.returncode, 1)
+        self.assertIn("--shell-escape", outcome.primary_error.message)
+        compile_document.assert_not_called()
+
+    def test_no_install_names_missing_direct_tool(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._managed_root(directory)
+            Path(directory, "paper.tex").write_text(
+                "\\usepackage{glossaries}\n\\makeglossaries\n", encoding="utf-8"
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                with (
+                    patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
+                    patch(
+                        "texmini.cli.resolve_build_layout",
+                        return_value=cli.default_build_layout("paper.tex"),
+                    ),
+                    patch("texmini.cli.run_tinytex_compile") as compile_document,
+                ):
+                    outcome = cli.run_tinytex_backend(
+                        "pdflatex", False, False, "paper.tex", ["paper.tex"]
+                    )
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(outcome.failure_kind, "disabled")
+        self.assertIn("makeglossaries", outcome.primary_error.message)
+        compile_document.assert_not_called()
+
+    def test_watch_snapshot_tracks_project_inputs_not_generated_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "paper.tex"
+            source.write_text("source", encoding="utf-8")
+            image = root / "figure.png"
+            image.write_bytes(b"image")
+            pdf = root / "paper.pdf"
+            pdf.write_bytes(b"pdf")
+            (root / "paper.aux").write_text("generated", encoding="utf-8")
+            layout = cli.default_build_layout(str(source))
+
+            snapshot = cli.watch_snapshot(root, layout)
+
+        self.assertIn(source.resolve(), snapshot)
+        self.assertIn(image.resolve(), snapshot)
+        self.assertNotIn(pdf.resolve(), snapshot)
+        self.assertFalse(any(path.suffix == ".aux" for path in snapshot))
+
+    def test_watch_returns_130_on_interrupt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text("source", encoding="utf-8")
+            layout = cli.default_build_layout(str(source))
+            config = cli.CliConfig(
+                None, False, False, True, True, False, [str(source)], [], str(source)
+            )
+            outcome = cli.BuildOutcome(0, 0.1, True, layout=layout)
+            output = io.StringIO()
+            with (
+                patch("texmini.cli.run_document_build", return_value=outcome),
+                patch("texmini.cli.watch_snapshot", return_value={}),
+                patch("texmini.cli.sleep", side_effect=KeyboardInterrupt),
+                redirect_stdout(output),
+            ):
+                result = cli.watch_document(config, str(source), cli.Reporter())
+
+        self.assertEqual(result, 130)
+        self.assertIn("Watching", output.getvalue())
+        self.assertIn("Stopped watching", output.getvalue())
+
+    def test_watch_stops_after_package_manager_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text("source", encoding="utf-8")
+            layout = cli.default_build_layout(str(source))
+            config = cli.CliConfig(
+                None, False, False, True, True, False, [str(source)], [], str(source)
+            )
+            outcome = cli.BuildOutcome(
+                7, 0.1, False, failure_kind="install_failed", layout=layout
+            )
+            with (
+                patch("texmini.cli.run_document_build", return_value=outcome),
+                patch("texmini.cli.watch_snapshot") as snapshot,
+                redirect_stderr(io.StringIO()),
+            ):
+                result = cli.watch_document(config, str(source), cli.Reporter())
+
+        self.assertEqual(result, 7)
+        snapshot.assert_not_called()
 
     def test_main_retains_build_files_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -553,7 +1036,10 @@ class CliTest(unittest.TestCase):
                 Path("paper.pdf").write_text("pdf", encoding="utf-8")
                 outcome = cli.BuildOutcome(0, 0.14, True)
                 output = io.StringIO()
-                with patch("texmini.cli.run_tinytex_backend", return_value=outcome), redirect_stdout(output):
+                with (
+                    patch("texmini.cli.run_tinytex_backend", return_value=outcome),
+                    redirect_stdout(output),
+                ):
                     result = cli.main(["paper.tex"])
                 auxiliary_retained = Path("paper.aux").exists()
             finally:
@@ -574,7 +1060,10 @@ class CliTest(unittest.TestCase):
                 Path("paper.pdf").write_text("pdf", encoding="utf-8")
                 outcome = cli.BuildOutcome(0, 0.2, False)
                 output = io.StringIO()
-                with patch("texmini.cli.run_tinytex_backend", return_value=outcome), redirect_stdout(output):
+                with (
+                    patch("texmini.cli.run_tinytex_backend", return_value=outcome),
+                    redirect_stdout(output),
+                ):
                     result = cli.main(["--clean", "paper.tex"])
             finally:
                 os.chdir(previous)
@@ -627,7 +1116,9 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(result, 1)
         self.assertEqual(output.getvalue(), "")
-        self.assertIn("LaTeX source file 'missing.tex' does not exist", errors.getvalue())
+        self.assertIn(
+            "LaTeX source file 'missing.tex' does not exist", errors.getvalue()
+        )
         backend.assert_not_called()
 
     def test_main_failure_reports_line_and_partial_pdf(self) -> None:
@@ -642,10 +1133,15 @@ class CliTest(unittest.TestCase):
                     0.2,
                     True,
                     failure_kind="ordinary",
-                    primary_error=cli.PrimaryError("Undefined control sequence", "broken.tex", 4),
+                    primary_error=cli.PrimaryError(
+                        "Undefined control sequence", "broken.tex", 4
+                    ),
                 )
                 errors = io.StringIO()
-                with patch("texmini.cli.run_tinytex_backend", return_value=outcome), redirect_stderr(errors):
+                with (
+                    patch("texmini.cli.run_tinytex_backend", return_value=outcome),
+                    redirect_stderr(errors),
+                ):
                     result = cli.main(["broken.tex"])
             finally:
                 os.chdir(previous)
@@ -671,7 +1167,10 @@ class CliTest(unittest.TestCase):
                     primary_error=cli.PrimaryError("geometry.sty is missing"),
                 )
                 errors = io.StringIO()
-                with patch("texmini.cli.run_tinytex_backend", return_value=outcome), redirect_stderr(errors):
+                with (
+                    patch("texmini.cli.run_tinytex_backend", return_value=outcome),
+                    redirect_stderr(errors),
+                ):
                     result = cli.main(["--no-install", "paper.tex"])
             finally:
                 os.chdir(previous)
@@ -696,12 +1195,21 @@ class CliTest(unittest.TestCase):
         self.assertIn("TeX Live package installation failed", errors.getvalue())
 
     def test_compile_uses_noninteractive_file_line_diagnostics(self) -> None:
-        with patch("texmini.cli.run_command", return_value=SimpleNamespace(returncode=1)) as run:
+        with patch(
+            "texmini.cli.run_command", return_value=SimpleNamespace(returncode=1)
+        ) as run:
             cli.run_tinytex_compile("pdflatex", ["paper.tex"], Path("TinyTeX"), env={})
 
         self.assertEqual(
             run.call_args.args[0],
-            ["latexmk", "-pdf", "-interaction=nonstopmode", "-file-line-error", "paper.tex"],
+            [
+                "latexmk",
+                "-pdf",
+                "-cd",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "paper.tex",
+            ],
         )
 
     def test_verbose_install_subcommand_is_supported(self) -> None:
