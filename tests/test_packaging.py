@@ -45,7 +45,7 @@ class PackagingTest(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "0.4.0")
+            self.assertEqual(version.stdout.strip(), "0.4.1")
 
             help_result = subprocess.run(
                 [str(bin_dir / "texmini"), "--help"],
@@ -118,25 +118,29 @@ class PackagingTest(unittest.TestCase):
 
         self.assertIn("TINYTEX_VERSION=2026.07", dockerfile)
         self.assertIn(
-            "b814b0370ea3f633fa5ce640ad74c3d1cdfa80cc4aa0d33893baf1467c4b35fe",
+            "7b107b20dcb7d35069fde8199b70cdc4603298ad77de4706f760dd0e8a432938",
             dockerfile,
         )
         self.assertIn(
-            "befcf452ed2fe07edea92c8b23e9e6977a6bfbffc15d7ce8bae2fd96a3d8eee5",
+            "7eec4fa1f85794a0e254290f45d73c55d84f7d790996aea94eddde4cf7e9d5b7",
             dockerfile,
         )
         self.assertIn("python:3.12-slim-bookworm@sha256:", dockerfile)
         self.assertIn("debian:bookworm-slim@sha256:", dockerfile)
         self.assertIn("ghcr.io/astral-sh/uv:0.11.20@sha256:", dockerfile)
         self.assertIn("uv build --wheel", dockerfile)
+        self.assertIn('archive="TinyTeX-0-${platform}', dockerfile)
+        self.assertIn("latex-bin latexmk metafont mfware", dockerfile)
         self.assertIn("biblatex biber bibtex natbib csquotes", dockerfile)
-        self.assertIn(
-            "makeindex imakeidx glossaries glossaries-extra xindy nomencl koma-script minted",
-            dockerfile,
-        )
-        self.assertIn("enumitem microtype", dockerfile)
+        self.assertNotIn("makeindex imakeidx glossaries", dockerfile)
+        self.assertNotIn("enumitem microtype", dockerfile)
+        self.assertIn("curl fontconfig", dockerfile)
         self.assertIn("libncurses6", dockerfile)
         self.assertIn("util-linux", dockerfile)
+        self.assertIn("xz-utils", dockerfile)
+        self.assertIn("TEXMINI_PACKAGE_MAP=/opt/TinyTeX/", dockerfile)
+        self.assertIn("TEXMINI_TINYTEX_BUNDLE=TinyTeX-0", dockerfile)
+        self.assertIn("RUN chmod -R a+rwX /opt/TinyTeX", dockerfile)
         self.assertIn("COPY --chmod=755 docker-entrypoint.sh", dockerfile)
         self.assertIn('ENTRYPOINT ["texmini-entrypoint"]', dockerfile)
         self.assertNotIn("nix", dockerfile.lower())

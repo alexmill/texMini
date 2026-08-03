@@ -15,14 +15,14 @@ uvx texmini paper.tex
 With Docker Desktop or Docker Engine:
 
 ```bash
-docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
+docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
 ```
 
-The Docker command works in Bash, zsh, and PowerShell. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.4.0` instead of `:latest` when reproducibility matters.
+The Docker command works in Bash, zsh, and PowerShell. Docker creates the `texmini-runtime` volume automatically so packages installed for one project remain available to later builds. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.4.1` instead of `:latest` when reproducibility matters.
 
-texMini builds existing LaTeX projects with real TeX Live and `latexmk`. On the first run, it downloads a minimal private TinyTeX runtime. When a document needs a package that is not installed, texMini finds the corresponding TeX Live package, installs it, and retries the build.
+texMini builds existing LaTeX projects with real TeX Live and `latexmk`. The native path downloads a minimal private TinyTeX runtime on its first run; the Docker image starts with the compiler and bibliography baseline already present. In either path, when a document needs another package, texMini finds the corresponding TeX Live package, installs it, and retries the build.
 
-The result is a TeX installation that grows with your documents instead of arriving as a multi-gigabyte desktop distribution. It lives in `~/.texmini`, does not modify the system TeX installation, and can be removed by deleting that directory.
+The result is a TeX installation that grows with your documents instead of arriving as a multi-gigabyte desktop distribution. The native runtime lives in `~/.texmini`; the Docker pathway uses the `texmini-runtime` volume. Neither modifies a system TeX installation.
 
 ```text
 paper.tex  ──▶  texmini  ──▶  install what is missing  ──▶  paper.pdf
@@ -38,15 +38,15 @@ texMini combines conventional TeX compatibility with a disposable command-line e
 
 - **Use the project you already have.** Build ordinary `.tex` files with TeX Live and `latexmk`.
 - **Install only what the document needs.** Missing classes, packages, fonts, bibliography styles, and Biber are resolved and installed automatically.
-- **Keep TeX contained.** The managed runtime and its packages stay under `~/.texmini`.
-- **Remove it like ordinary files.** There is no system-wide uninstaller or package database to unwind.
-- **Choose native or containerized execution.** The published Docker image is a ready-to-run, cross-platform option for common documents.
+- **Keep TeX contained.** The managed runtime stays under `~/.texmini` or in a named Docker volume.
+- **Remove it cleanly.** Delete the native directory or Docker volume; there is no system-wide installation to unwind.
+- **Choose native or containerized execution.** The published Docker image runs the same adaptive compiler through a cross-platform compatibility layer.
 
 ## Comparison
 
 | System | Existing LaTeX projects | Package handling | Installation and removal | Main compromise |
 | --- | --- | --- | --- | --- |
-| **texMini** | Builds conventional projects with pdfLaTeX, LuaLaTeX, or XeLaTeX | Automatically detects and installs needed TeX Live packages and common build tools into a private runtime | Run with `uvx` or Docker; delete `~/.texmini` to remove the native runtime | Arbitrary project-specific executables can require additional setup |
+| **texMini** | Builds conventional projects with pdfLaTeX, LuaLaTeX, or XeLaTeX | Automatically detects and installs needed TeX Live packages and common build tools into a private runtime | Run with `uvx` or Docker; remove the native directory or Docker volume to uninstall | Arbitrary project-specific executables can require additional setup |
 | [Tectonic](https://tectonic-typesetting.github.io/) | Builds many projects, subject to its XeTeX-derived engine and build model | Downloads support files from a configured bundle | A single executable and a removable cache | It does not provide every engine and utility in conventional TeX Live |
 | [TinyTeX with R](https://yihui.org/tinytex/) | Broad TeX Live compatibility | The R package can detect and install missing packages during compilation | A small, portable TeX Live directory | The automated workflow is coupled to R |
 | **TinyTeX from the shell** | Broad TeX Live compatibility | Packages are managed directly with `tlmgr` | A small, portable TeX Live directory | Compilation and missing-package repair are manual |
@@ -264,16 +264,20 @@ Use `--verbose` to stream complete subprocess output. On failure, the default ou
 Docker is the cross-platform, isolated pathway for Docker Desktop and Docker Engine users, including Windows. Compile a document in the current directory with:
 
 ```bash
-docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
+docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
 ```
 
 Use the versioned image for a reproducible invocation:
 
 ```bash
-docker run --rm -v "${PWD}:/work" ghcr.io/alexmill/texmini:0.4.0 paper.tex
+docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmill/texmini:0.4.1 paper.tex
 ```
 
-The image bundles TinyTeX, Pygments, and packages used by common math, layout, BibTeX, Biber, index, glossary, nomenclature, minted, hyperlink, color, and TikZ documents. These workflows can therefore build from the downloaded image alone. When networking is available, texMini downloads uncommon TeX Live packages as needed. Those additions are discarded with `--rm`; this is an isolated ready-to-run workflow, not a promise that every possible project compiles offline.
+The image provides the compiler, Pygments, and the standard BibTeX/Biber baseline. texMini then analyzes the document and installs its other TeX Live packages on demand, using the same package-recovery logic as the native path. A network connection is therefore required when a project introduces a package that is not already in the runtime volume.
+
+The named `texmini-runtime` volume preserves those adaptive additions across disposable `--rm` containers. Omit that volume for a fully disposable one-shot build; any packages downloaded during that invocation will then be discarded with the container.
+
+Remove the persistent Docker runtime at any time with `docker volume rm texmini-runtime`.
 
 On native Linux, the entrypoint writes outputs as the owner of the mounted directory. Explicit Docker `--user` settings remain supported. Docker Desktop handles bind-mount ownership through its virtual machine.
 
@@ -322,7 +326,8 @@ Build and smoke-test Docker:
 
 ```bash
 docker build -t texmini .
-docker run --rm --network none \
+docker run --rm \
+  -v texmini-development-runtime:/opt/TinyTeX \
   -v "${PWD}/tests/fixtures/bibliography:/work" \
   texmini bibliography.tex
 ```
