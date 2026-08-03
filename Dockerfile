@@ -18,8 +18,8 @@ FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bb
 
 ARG TARGETARCH
 ARG TINYTEX_VERSION=2026.07
-ARG TINYTEX_AMD64_SHA256=b814b0370ea3f633fa5ce640ad74c3d1cdfa80cc4aa0d33893baf1467c4b35fe
-ARG TINYTEX_ARM64_SHA256=befcf452ed2fe07edea92c8b23e9e6977a6bfbffc15d7ce8bae2fd96a3d8eee5
+ARG TINYTEX_AMD64_SHA256=7b107b20dcb7d35069fde8199b70cdc4603298ad77de4706f760dd0e8a432938
+ARG TINYTEX_ARM64_SHA256=7eec4fa1f85794a0e254290f45d73c55d84f7d790996aea94eddde4cf7e9d5b7
 
 RUN apt-get update \
   && apt-get install --yes --no-install-recommends ca-certificates curl perl xz-utils \
@@ -30,7 +30,7 @@ RUN set -eux; \
     arm64) platform="linux-arm64"; checksum="$TINYTEX_ARM64_SHA256" ;; \
     *) echo "Unsupported Docker architecture: $TARGETARCH" >&2; exit 1 ;; \
   esac; \
-  archive="TinyTeX-1-${platform}-v${TINYTEX_VERSION}.tar.xz"; \
+  archive="TinyTeX-0-${platform}-v${TINYTEX_VERSION}.tar.xz"; \
   curl --fail --location --retry 3 \
     "https://github.com/rstudio/tinytex-releases/releases/download/v${TINYTEX_VERSION}/${archive}" \
     --output "/tmp/${archive}"; \
@@ -41,24 +41,24 @@ RUN set -eux; \
   tex_bin="$(find /opt/TinyTeX/bin -mindepth 1 -maxdepth 1 -type d -print -quit)"; \
   PATH="${tex_bin}:$PATH" tlmgr update --self; \
   PATH="${tex_bin}:$PATH" tlmgr install \
-    geometry amsmath biblatex biber bibtex natbib csquotes xcolor hyperref pgf framed enumitem microtype \
-    makeindex imakeidx glossaries glossaries-extra xindy nomencl koma-script minted; \
+    latex-bin latexmk metafont mfware biblatex biber bibtex natbib csquotes; \
   chmod -R a+rwX /opt/TinyTeX; \
   rm "/tmp/${archive}"
 
 FROM ${PYTHON_IMAGE} AS runtime
 
 RUN apt-get update \
-  && apt-get install --yes --no-install-recommends ca-certificates fontconfig libncurses6 perl util-linux \
+  && apt-get install --yes --no-install-recommends ca-certificates curl fontconfig libncurses6 perl util-linux xz-utils \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=python-build /opt/texmini /opt/texmini
 COPY --from=tinytex /opt/TinyTeX /opt/TinyTeX
+RUN chmod -R a+rwX /opt/TinyTeX
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/texmini-entrypoint
 
 ENV HOME=/tmp \
   PATH="/opt/texmini/bin:${PATH}" \
-  TEXMINI_PACKAGE_MAP=/tmp/texmini-package-map.json \
-  TEXMINI_TINYTEX_BUNDLE=TinyTeX-1 \
+  TEXMINI_PACKAGE_MAP=/opt/TinyTeX/.texmini-package-map.json \
+  TEXMINI_TINYTEX_BUNDLE=TinyTeX-0 \
   TEXMINI_TINYTEX_ROOT=/opt/TinyTeX
 
 WORKDIR /work
