@@ -5,10 +5,10 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import tomllib
 import unittest
 from pathlib import Path
 
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,7 +45,7 @@ class PackagingTest(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "0.3.0")
+            self.assertEqual(version.stdout.strip(), "0.4.0")
 
             help_result = subprocess.run(
                 [str(bin_dir / "texmini"), "--help"],
@@ -67,10 +67,14 @@ class PackagingTest(unittest.TestCase):
         self.assertNotIn("script-files", pyproject)
 
     def test_pyproject_exposes_public_package_metadata(self) -> None:
-        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+            "project"
+        ]
 
         self.assertEqual(project["name"], "texmini")
-        self.assertEqual(project["urls"]["Repository"], "https://github.com/alexmill/texMini")
+        self.assertEqual(
+            project["urls"]["Repository"], "https://github.com/alexmill/texMini"
+        )
         self.assertIn("Operating System :: MacOS", project["classifiers"])
         self.assertIn("Operating System :: POSIX :: Linux", project["classifiers"])
 
@@ -88,22 +92,50 @@ class PackagingTest(unittest.TestCase):
             with tarfile.open(archive, "r:gz") as distribution:
                 names = distribution.getnames()
 
-        self.assertTrue(any(name.endswith("/benchmarks/benchmark.py") for name in names))
-        self.assertTrue(any(name.endswith("/tests/fixtures/simple/simple.tex") for name in names))
-        self.assertTrue(any(name.endswith("/tests/fixtures/bibliography/refs.bib") for name in names))
+        self.assertTrue(
+            any(name.endswith("/benchmarks/benchmark.py") for name in names)
+        )
+        self.assertTrue(
+            any(name.endswith("/tests/fixtures/simple/simple.tex") for name in names)
+        )
+        self.assertTrue(
+            any(
+                name.endswith("/tests/fixtures/bibliography/refs.bib") for name in names
+            )
+        )
+        self.assertTrue(
+            any(
+                name.endswith("/tests/fixtures/multifile/tex/publisher.cls")
+                for name in names
+            )
+        )
+        self.assertTrue(
+            any(name.endswith("/src/texmini/texmini_latexmkrc") for name in names)
+        )
 
     def test_dockerfile_pins_supported_tinytex_archives(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
         self.assertIn("TINYTEX_VERSION=2026.07", dockerfile)
-        self.assertIn("b814b0370ea3f633fa5ce640ad74c3d1cdfa80cc4aa0d33893baf1467c4b35fe", dockerfile)
-        self.assertIn("befcf452ed2fe07edea92c8b23e9e6977a6bfbffc15d7ce8bae2fd96a3d8eee5", dockerfile)
+        self.assertIn(
+            "b814b0370ea3f633fa5ce640ad74c3d1cdfa80cc4aa0d33893baf1467c4b35fe",
+            dockerfile,
+        )
+        self.assertIn(
+            "befcf452ed2fe07edea92c8b23e9e6977a6bfbffc15d7ce8bae2fd96a3d8eee5",
+            dockerfile,
+        )
         self.assertIn("python:3.12-slim-bookworm@sha256:", dockerfile)
         self.assertIn("debian:bookworm-slim@sha256:", dockerfile)
         self.assertIn("ghcr.io/astral-sh/uv:0.11.20@sha256:", dockerfile)
         self.assertIn("uv build --wheel", dockerfile)
-        self.assertIn("biblatex biber csquotes", dockerfile)
+        self.assertIn("biblatex biber bibtex natbib csquotes", dockerfile)
+        self.assertIn(
+            "makeindex imakeidx glossaries glossaries-extra xindy nomencl koma-script minted",
+            dockerfile,
+        )
         self.assertIn("enumitem microtype", dockerfile)
+        self.assertIn("libncurses6", dockerfile)
         self.assertIn("util-linux", dockerfile)
         self.assertIn("COPY --chmod=755 docker-entrypoint.sh", dockerfile)
         self.assertIn('ENTRYPOINT ["texmini-entrypoint"]', dockerfile)
@@ -118,9 +150,11 @@ class PackagingTest(unittest.TestCase):
         self.assertIn('exec texmini "$@"', entrypoint)
 
     def test_release_workflow_uses_tag_gates_and_trusted_publishing(self) -> None:
-        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
 
-        self.assertIn('group: release-${{ github.ref }}', workflow)
+        self.assertIn("group: release-${{ github.ref }}", workflow)
         self.assertIn("Release tags must be annotated.", workflow)
         self.assertIn("pypa/gh-action-pypi-publish@", workflow)
         self.assertIn("ghcr.io/alexmill/texmini", workflow)

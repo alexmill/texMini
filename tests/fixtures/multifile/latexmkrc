@@ -1,0 +1,5 @@
+$out_dir = 'build';
+$aux_dir = 'aux';
+$jobname = 'publication';
+$ENV{'TEXINPUTS'} = './tex//:' . ($ENV{'TEXINPUTS'} // '');
+$ENV{'BSTINPUTS'} = './bst//:' . ($ENV{'BSTINPUTS'} // '');

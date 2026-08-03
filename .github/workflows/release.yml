@@ -85,12 +85,26 @@ jobs:
           test "$(docker run --rm texmini:release-candidate --version)" = "${{ needs.package.outputs.version }}"
           simple_fixture="$PWD/tests/fixtures/simple"
           bibliography_fixture="$PWD/tests/fixtures/bibliography"
+          bibtex_fixture="$PWD/tests/fixtures/bibtex"
+          index_fixture="$PWD/tests/fixtures/index"
+          glossary_fixture="$PWD/tests/fixtures/glossary"
+          xindy_fixture="$PWD/tests/fixtures/glossary-xindy"
+          nomenclature_fixture="$PWD/tests/fixtures/nomenclature"
+          minted_fixture="$PWD/tests/fixtures/minted"
+          multifile_fixture="$PWD/tests/fixtures/multifile"
           docker run --rm --network none \
             -v "$simple_fixture:/work" \
             texmini:release-candidate simple.tex
           docker run --rm --network none \
             -v "$bibliography_fixture:/work" \
             texmini:release-candidate bibliography.tex
+          docker run --rm --network none -v "$bibtex_fixture:/work" texmini:release-candidate paper.tex
+          docker run --rm --network none -v "$index_fixture:/work" texmini:release-candidate index.tex
+          docker run --rm --network none -v "$glossary_fixture:/work" texmini:release-candidate glossary.tex
+          docker run --rm --network none -v "$xindy_fixture:/work" texmini:release-candidate glossary.tex
+          docker run --rm --network none -v "$nomenclature_fixture:/work" texmini:release-candidate nomenclature.tex
+          docker run --rm --network none -v "$minted_fixture:/work" texmini:release-candidate --shell-escape minted.tex
+          docker run --rm --network none -v "$multifile_fixture:/work" texmini:release-candidate main.tex
           second_output="$(docker run --rm --network none \
             -v "$bibliography_fixture:/work" \
             texmini:release-candidate bibliography.tex)"
@@ -101,6 +115,13 @@ jobs:
             texmini:release-candidate --clean bibliography.tex
           test -s "$simple_fixture/simple.pdf"
           test -s "$bibliography_fixture/bibliography.pdf"
+          test -s "$bibtex_fixture/paper.bbl"
+          test -s "$index_fixture/people.ind"
+          test -s "$glossary_fixture/glossary.gls"
+          test -s "$xindy_fixture/glossary.gls"
+          test -s "$nomenclature_fixture/nomenclature.nls"
+          test -s "$minted_fixture/minted.pdf"
+          test -s "$multifile_fixture/build/publication.pdf"
           test ! -e "$bibliography_fixture/bibliography.aux"
           test "$(stat -c %u "$bibliography_fixture/bibliography.pdf")" = "$(id -u)"
           arbitrary_dir="$RUNNER_TEMP/arbitrary-uid"
