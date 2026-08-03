@@ -176,53 +176,7 @@ jobs:
         run: docker run --rm texmini:test --version
       - name: Compile with adaptive package installation
         if: matrix.arch == 'amd64'
-        run: |
-          simple_fixture="$PWD/tests/fixtures/simple"
-          bibliography_fixture="$PWD/tests/fixtures/bibliography"
-          bibtex_fixture="$PWD/tests/fixtures/bibtex"
-          index_fixture="$PWD/tests/fixtures/index"
-          glossary_fixture="$PWD/tests/fixtures/glossary"
-          xindy_fixture="$PWD/tests/fixtures/glossary-xindy"
-          nomenclature_fixture="$PWD/tests/fixtures/nomenclature"
-          minted_fixture="$PWD/tests/fixtures/minted"
-          multifile_fixture="$PWD/tests/fixtures/multifile"
-          run_texmini() {
-            docker run --rm -v texmini-ci-runtime:/opt/TinyTeX "$@"
-          }
-          simple_output="$(run_texmini \
-            -v "$simple_fixture:/work" \
-            texmini:test simple.tex)"
-          printf '%s\n' "$simple_output"
-          grep -q "Installing 1 package: geometry" <<< "$simple_output"
-          run_texmini \
-            -v "$bibliography_fixture:/work" \
-            texmini:test bibliography.tex
-          run_texmini -v "$bibtex_fixture:/work" texmini:test paper.tex
-          run_texmini -v "$index_fixture:/work" texmini:test index.tex
-          run_texmini -v "$glossary_fixture:/work" texmini:test glossary.tex
-          run_texmini -v "$xindy_fixture:/work" texmini:test glossary.tex
-          run_texmini -v "$nomenclature_fixture:/work" texmini:test nomenclature.tex
-          run_texmini -v "$minted_fixture:/work" texmini:test --shell-escape minted.tex
-          run_texmini -v "$multifile_fixture:/work" texmini:test main.tex
-          second_output="$(run_texmini \
-            -v "$bibliography_fixture:/work" \
-            texmini:test bibliography.tex)"
-          printf '%s\n' "$second_output"
-          grep -q "bibliography.pdf is up to date" <<< "$second_output"
-          run_texmini \
-            -v "$bibliography_fixture:/work" \
-            texmini:test --clean bibliography.tex
-          test -s "$simple_fixture/simple.pdf"
-          test -s "$bibliography_fixture/bibliography.pdf"
-          test -s "$bibtex_fixture/paper.bbl"
-          test -s "$index_fixture/people.ind"
-          test -s "$glossary_fixture/glossary.gls"
-          test -s "$xindy_fixture/glossary.gls"
-          test -s "$nomenclature_fixture/nomenclature.nls"
-          test -s "$minted_fixture/minted.pdf"
-          test -s "$multifile_fixture/build/publication.pdf"
-          test ! -e "$bibliography_fixture/bibliography.aux"
-          test "$(stat -c %u "$bibliography_fixture/bibliography.pdf")" = "$(id -u)"
+        run: tests/smoke_docker.sh texmini:test
       - name: Preserve explicit arbitrary UID behavior
         if: matrix.arch == 'amd64'
         run: |

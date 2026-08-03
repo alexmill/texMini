@@ -21,6 +21,8 @@ ARG TINYTEX_VERSION=2026.07
 ARG TINYTEX_AMD64_SHA256=7b107b20dcb7d35069fde8199b70cdc4603298ad77de4706f760dd0e8a432938
 ARG TINYTEX_ARM64_SHA256=7eec4fa1f85794a0e254290f45d73c55d84f7d790996aea94eddde4cf7e9d5b7
 
+COPY docker-packages.txt /tmp/docker-packages.txt
+
 RUN apt-get update \
   && apt-get install --yes --no-install-recommends ca-certificates curl perl xz-utils \
   && rm -rf /var/lib/apt/lists/*
@@ -40,8 +42,7 @@ RUN set -eux; \
   if [ -d /opt/.TinyTeX ]; then mv /opt/.TinyTeX /opt/TinyTeX; fi; \
   tex_bin="$(find /opt/TinyTeX/bin -mindepth 1 -maxdepth 1 -type d -print -quit)"; \
   PATH="${tex_bin}:$PATH" tlmgr update --self; \
-  PATH="${tex_bin}:$PATH" tlmgr install \
-    latex-bin latexmk metafont mfware biblatex biber bibtex natbib csquotes; \
+  xargs env PATH="${tex_bin}:$PATH" tlmgr install < /tmp/docker-packages.txt; \
   chmod -R a+rwX /opt/TinyTeX; \
   rm "/tmp/${archive}"
 
