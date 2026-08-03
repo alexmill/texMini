@@ -18,7 +18,7 @@ With Docker Desktop or Docker Engine:
 docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
 ```
 
-The Docker command works in Bash, zsh, and PowerShell. Docker creates the `texmini-runtime` volume automatically so packages installed for one project remain available to later builds. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.4.1` instead of `:latest` when reproducibility matters.
+The Docker command works in Bash, zsh, and PowerShell. Docker creates the `texmini-runtime` volume automatically so packages installed for one project remain available to later builds. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.4.2` instead of `:latest` when reproducibility matters.
 
 texMini builds existing LaTeX projects with real TeX Live and `latexmk`. The native path downloads a minimal private TinyTeX runtime on its first run; the Docker image starts with the compiler and bibliography baseline already present. In either path, when a document needs another package, texMini finds the corresponding TeX Live package, installs it, and retries the build.
 
@@ -270,7 +270,7 @@ docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmi
 Use the versioned image for a reproducible invocation:
 
 ```bash
-docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmill/texmini:0.4.1 paper.tex
+docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmill/texmini:0.4.2 paper.tex
 ```
 
 The image provides the compiler, Pygments, and the standard BibTeX/Biber baseline. texMini then analyzes the document and installs its other TeX Live packages on demand, using the same package-recovery logic as the native path. A network connection is therefore required when a project introduces a package that is not already in the runtime volume.
