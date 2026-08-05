@@ -105,6 +105,25 @@ class RuntimeTest(unittest.TestCase):
         ):
             self.assertEqual(runtime.tinytex_platform_key(), "linuxmusl-x86_64")
 
+    def test_platform_selects_macos_asset(self) -> None:
+        with patch("sys.platform", "darwin"):
+            self.assertEqual(runtime.tinytex_platform_key(), "darwin")
+
+    def test_platform_selects_glibc_linux_asset(self) -> None:
+        with (
+            patch("sys.platform", "linux"),
+            patch("platform.machine", return_value="x86_64"),
+            patch("platform.libc_ver", return_value=("glibc", "2.36")),
+        ):
+            self.assertEqual(runtime.tinytex_platform_key(), "linux-x86_64")
+
+    def test_platform_selects_arm64_linux_asset(self) -> None:
+        with (
+            patch("sys.platform", "linux"),
+            patch("platform.machine", return_value="aarch64"),
+        ):
+            self.assertEqual(runtime.tinytex_platform_key(), "linux-arm64")
+
     def test_archive_validation_rejects_escape(self) -> None:
         safe = tarfile.TarInfo("TinyTeX/bin/tool")
         runtime.validate_tinytex_archive_member(safe)
@@ -113,7 +132,10 @@ class RuntimeTest(unittest.TestCase):
 
     def test_release_lookup_uses_github_token_when_available(self) -> None:
         release = io.BytesIO(
-            b'{"assets":[{"name":"TinyTeX-0-test-v1.tar.xz","browser_download_url":"https://archive","digest":"sha256:abc"}]}'
+            b'{"assets":['
+            b'{"name":"TinyTeX-0-test-v1.tar.xz","browser_download_url":"https://old"},'
+            b'{"name":"TinyTeX-1-test-v1.tar.xz","browser_download_url":"https://archive","digest":"sha256:abc"}'
+            b"]}"
         )
         with (
             patch.dict(
@@ -129,8 +151,28 @@ class RuntimeTest(unittest.TestCase):
         self.assertEqual(request.get_header("Authorization"), "Bearer test-token")
         self.assertEqual(request.get_header("User-agent"), f"texmini/{__version__}")
         self.assertEqual(
-            asset, ("TinyTeX-0-test-v1.tar.xz", "https://archive", "sha256:abc")
+            asset, ("TinyTeX-1-test-v1.tar.xz", "https://archive", "sha256:abc")
         )
+
+    def test_existing_runtime_is_reused_without_network_or_update(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "TinyTeX"
+            bin_dir = root / "bin" / "test"
+            bin_dir.mkdir(parents=True)
+            latexmk = bin_dir / "latexmk"
+            latexmk.write_text("latexmk", encoding="utf-8")
+            latexmk.chmod(0o755)
+            with (
+                patch(
+                    "texmini.runtime.executable_on_path", return_value="/usr/bin/perl"
+                ),
+                patch("texmini.runtime.latest_tinytex_asset") as latest,
+                patch("texmini.runtime.update_tinytex_manager") as update,
+            ):
+                runtime.install_tinytex_archive(root)
+
+            latest.assert_not_called()
+            update.assert_not_called()
 
     def test_tinytex_archive_verifies_checksum_before_extraction(self) -> None:
         archive = self._tinytex_archive()
@@ -138,7 +180,6 @@ class RuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "TinyTeX"
             with (
-                patch.dict(os.environ, {"TEXMINI_TINYTEX_BUNDLE": "TinyTeX-1"}),
                 patch(
                     "texmini.runtime.executable_on_path", return_value="/usr/bin/perl"
                 ),
@@ -147,18 +188,19 @@ class RuntimeTest(unittest.TestCase):
                     return_value=("TinyTeX-1-test.tar.xz", "https://test", digest),
                 ),
                 patch("urllib.request.urlopen", return_value=io.BytesIO(archive)),
-                patch("texmini.runtime.update_tinytex_manager"),
+                patch("texmini.runtime.update_tinytex_manager") as update,
             ):
                 runtime.install_tinytex_archive(root)
 
             self.assertTrue((root / "bin" / "test" / "latexmk").is_file())
+            update.assert_called_once()
+            self.assertEqual(update.call_args.args[0], root)
 
     def test_checksum_failure_stops_before_extraction(self) -> None:
         archive = self._tinytex_archive()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "TinyTeX"
             with (
-                patch.dict(os.environ, {"TEXMINI_TINYTEX_BUNDLE": "TinyTeX-1"}),
                 patch(
                     "texmini.runtime.executable_on_path", return_value="/usr/bin/perl"
                 ),
@@ -180,12 +222,41 @@ class RuntimeTest(unittest.TestCase):
             tar_open.assert_not_called()
             self.assertFalse(root.exists())
 
+    def test_tinytex_one_archive_must_provide_latexmk(self) -> None:
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w:xz") as archive:
+            info = tarfile.TarInfo("TinyTeX/bin/test/tlmgr")
+            content = b"tlmgr"
+            info.size = len(content)
+            info.mode = 0o755
+            archive.addfile(info, io.BytesIO(content))
+        archive_bytes = payload.getvalue()
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "TinyTeX"
+            with (
+                patch(
+                    "texmini.runtime.executable_on_path", return_value="/usr/bin/perl"
+                ),
+                patch(
+                    "texmini.runtime.latest_tinytex_asset",
+                    return_value=("TinyTeX-1-test.tar.xz", "https://test", None),
+                ),
+                patch(
+                    "urllib.request.urlopen", return_value=io.BytesIO(archive_bytes)
+                ),
+                patch("texmini.runtime.update_tinytex_manager"),
+                self.assertRaisesRegex(
+                    model.TexMiniError, "TinyTeX does not provide latexmk"
+                ),
+            ):
+                runtime.install_tinytex_archive(root)
+
     def test_archive_without_digest_is_supported(self) -> None:
         archive = self._tinytex_archive()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "TinyTeX"
             with (
-                patch.dict(os.environ, {"TEXMINI_TINYTEX_BUNDLE": "TinyTeX-1"}),
                 patch(
                     "texmini.runtime.executable_on_path", return_value="/usr/bin/perl"
                 ),

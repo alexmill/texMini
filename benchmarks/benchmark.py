@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from texmini import __version__
-from texmini import cli
+from texmini import runtime
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -195,14 +195,17 @@ def parsed_install_payload(output: str) -> int:
     return total
 
 
-def tinytex_asset(bundle: str) -> tuple[str, int]:
-    prefix = f"{bundle}-{cli.tinytex_platform_key()}-"
-    with urllib.request.urlopen(cli.TINYTEX_RELEASE_API, timeout=30) as response:
+def tinytex_asset() -> tuple[str, int]:
+    prefix = f"{runtime.TINYTEX_BUNDLE}-{runtime.tinytex_platform_key()}-"
+    with urllib.request.urlopen(runtime.TINYTEX_RELEASE_API, timeout=30) as response:
         release = json.load(response)
     for asset in release["assets"]:
         if asset["name"].startswith(prefix) and asset["name"].endswith(".tar.xz"):
             return asset["name"], int(asset["size"])
-    raise RuntimeError(f"No release asset found for {bundle} and {cli.tinytex_platform_key()}")
+    raise RuntimeError(
+        f"No release asset found for {runtime.TINYTEX_BUNDLE} and "
+        f"{runtime.tinytex_platform_key()}"
+    )
 
 
 def run_compile(command: list[str], cwd: Path, env: dict[str, str], log_path: Path) -> dict[str, object]:
@@ -227,18 +230,17 @@ def run_compile(command: list[str], cwd: Path, env: dict[str, str], log_path: Pa
     }
 
 
-def benchmark_bundle(bundle: str, fixtures: list[str], repeats: int, workspace: Path) -> dict[str, object]:
-    runtime = workspace / "TinyTeX"
+def benchmark_runtime(fixtures: list[str], repeats: int, workspace: Path) -> dict[str, object]:
+    runtime_root = workspace / "TinyTeX"
     package_map = workspace / "package-map.json"
     logs = workspace / "logs"
     logs.mkdir(parents=True)
-    asset_name, archive_bytes = tinytex_asset(bundle)
+    asset_name, archive_bytes = tinytex_asset()
     env = {
         **os.environ,
         "PYTHONPATH": str(ROOT / "src"),
         "TEXMINI_PACKAGE_MAP": str(package_map),
-        "TEXMINI_TINYTEX_BUNDLE": bundle,
-        "TEXMINI_TINYTEX_ROOT": str(runtime),
+        "TEXMINI_TINYTEX_ROOT": str(runtime_root),
     }
     command_prefix = [sys.executable, "-m", "texmini.cli"]
     cases: list[dict[str, object]] = []
@@ -247,11 +249,11 @@ def benchmark_bundle(bundle: str, fixtures: list[str], repeats: int, workspace: 
         fixture_dir = workspace / "fixtures" / fixture
         tex_name = write_fixture(fixture, fixture_dir)
         stem = Path(tex_name).stem
-        logical_before = directory_size(runtime)
-        allocated_before = directory_size(runtime, allocated=True)
+        logical_before = directory_size(runtime_root)
+        allocated_before = directory_size(runtime_root, allocated=True)
         cold = run_compile(command_prefix + [tex_name], fixture_dir, env, logs / f"{fixture}-cold.log")
-        logical_after = directory_size(runtime)
-        allocated_after = directory_size(runtime, allocated=True)
+        logical_after = directory_size(runtime_root)
+        allocated_after = directory_size(runtime_root, allocated=True)
         pdf_path = fixture_dir / f"{stem}.pdf"
         warm_runs: list[dict[str, object]] = []
 
@@ -285,18 +287,17 @@ def benchmark_bundle(bundle: str, fixtures: list[str], repeats: int, workspace: 
         )
 
     return {
-        "bundle": bundle,
+        "bundle": runtime.TINYTEX_BUNDLE,
         "asset": asset_name,
         "archive_bytes": archive_bytes,
-        "final_runtime_logical_bytes": directory_size(runtime),
-        "final_runtime_allocated_bytes": directory_size(runtime, allocated=True),
+        "final_runtime_logical_bytes": directory_size(runtime_root),
+        "final_runtime_allocated_bytes": directory_size(runtime_root, allocated=True),
         "cases": cases,
     }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Benchmark isolated texMini managed runtimes.")
-    parser.add_argument("--bundles", nargs="+", default=["TinyTeX-0", "TinyTeX-1"])
     parser.add_argument("--fixtures", nargs="+", default=DEFAULT_FIXTURES)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--output", type=Path)
@@ -312,7 +313,7 @@ def main() -> int:
     temporary = tempfile.TemporaryDirectory(prefix="texmini-benchmark-")
     workspace_root = Path(temporary.name)
     results = {
-        "schema_version": 1,
+        "schema_version": 2,
         "timestamp_utc": timestamp,
         "texmini_version": __version__,
         "host": {
@@ -322,15 +323,15 @@ def main() -> int:
         },
         "fixtures": args.fixtures,
         "warm_repeats": args.repeats,
-        "bundles": [],
+        "baseline": None,
     }
 
     try:
-        for bundle in args.bundles:
-            print(f"Benchmarking {bundle}", flush=True)
-            bundle_result = benchmark_bundle(bundle, args.fixtures, args.repeats, workspace_root / bundle)
-            results["bundles"].append(bundle_result)
-            output.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+        print(f"Benchmarking {runtime.TINYTEX_BUNDLE}", flush=True)
+        results["baseline"] = benchmark_runtime(
+            args.fixtures, args.repeats, workspace_root / runtime.TINYTEX_BUNDLE
+        )
+        output.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     finally:
         if args.keep_workspaces:
             retained = output.with_suffix("")
@@ -339,7 +340,9 @@ def main() -> int:
         temporary.cleanup()
 
     print(f"Wrote {output}")
-    return 0 if all(case["cold"]["returncode"] == 0 for bundle in results["bundles"] for case in bundle["cases"]) else 1
+    baseline = results["baseline"]
+    assert isinstance(baseline, dict)
+    return 0 if all(case["cold"]["returncode"] == 0 for case in baseline["cases"]) else 1
 
 
 if __name__ == "__main__":

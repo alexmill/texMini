@@ -18,8 +18,7 @@ if TYPE_CHECKING:
 TINYTEX_RELEASE_API = (
     "https://api.github.com/repos/rstudio/tinytex-releases/releases/latest"
 )
-DEFAULT_TINYTEX_BUNDLE = "TinyTeX-0"
-TINYTEX_BOOTSTRAP_PACKAGES = ["latex-bin", "latexmk", "metafont", "mfware"]
+TINYTEX_BUNDLE = "TinyTeX-1"
 TINYTEX_ENGINE_PACKAGES = {"xelatex": "xetex"}
 DIRECT_TOOL_PACKAGES = {
     "biber": "biber",
@@ -106,10 +105,6 @@ def tinytex_env(root: Path, executable: str = "latexmk") -> dict[str, str]:
     return env
 
 
-def tinytex_bundle() -> str:
-    return os.environ.get("TEXMINI_TINYTEX_BUNDLE", DEFAULT_TINYTEX_BUNDLE)
-
-
 def tinytex_platform_key() -> str:
     if sys.platform == "darwin":
         return "darwin"
@@ -128,8 +123,7 @@ def latest_tinytex_asset() -> tuple[str, str, str | None]:
     import json
     import urllib.request
 
-    bundle = tinytex_bundle()
-    prefix = f"{bundle}-{tinytex_platform_key()}-"
+    prefix = f"{TINYTEX_BUNDLE}-{tinytex_platform_key()}-"
     request = urllib.request.Request(
         TINYTEX_RELEASE_API,
         headers={
@@ -145,7 +139,9 @@ def latest_tinytex_asset() -> tuple[str, str, str | None]:
         name = asset["name"]
         if name.startswith(prefix) and name.endswith(".tar.xz"):
             return name, asset["browser_download_url"], asset.get("digest")
-    raise TexMiniError(f"Error: No {bundle} TinyTeX archive found for this platform.")
+    raise TexMiniError(
+        f"Error: No {TINYTEX_BUNDLE} archive found for this platform."
+    )
 
 
 def update_tinytex_manager(root: Path, reporter: Reporter) -> None:
@@ -157,21 +153,6 @@ def update_tinytex_manager(root: Path, reporter: Reporter) -> None:
     )
     if update_result.returncode != 0:
         raise TexMiniError("Error: TinyTeX package manager bootstrap failed.")
-
-
-def bootstrap_tinytex(root: Path, reporter: Reporter) -> None:
-    update_tinytex_manager(root, reporter)
-    env = tinytex_env(root, "tlmgr")
-    reporter.status("Installing the LaTeX compiler...")
-    install_result = run_command(
-        ["tlmgr", "install", *TINYTEX_BOOTSTRAP_PACKAGES],
-        reporter=reporter,
-        env=env,
-        check=False,
-    )
-    if install_result.returncode != 0:
-        raise TexMiniError("Error: TinyTeX bootstrap package installation failed.")
-    tinytex_bin_dir(root)
 
 
 def validate_tinytex_archive_member(member: "tarfile.TarInfo") -> None:
@@ -220,13 +201,7 @@ def install_tinytex_archive(root: Path, reporter: Reporter | None = None) -> Non
             "Error: Perl is required to install and run TinyTeX. Install Perl and retry."
         )
     if (root / "bin").exists():
-        if tinytex_bundle() == "TinyTeX-0":
-            try:
-                tinytex_bin_dir(root)
-            except TexMiniError:
-                bootstrap_tinytex(root, reporter)
-        else:
-            tinytex_bin_dir(root)
+        tinytex_bin_dir(root)
         return
 
     reporter.status(f"Preparing a private TinyTeX runtime in {display_path(root)}.")
@@ -258,7 +233,7 @@ def install_tinytex_archive(root: Path, reporter: Reporter | None = None) -> Non
                 raise TexMiniError(f"Error: Checksum verification failed for {name}.")
             if reporter.verbose:
                 reporter.status(f"Verified SHA-256: {actual}")
-        reporter.status(f"Downloaded {tinytex_bundle()}.")
+        reporter.status(f"Downloaded {TINYTEX_BUNDLE}.")
         if reporter.verbose:
             reporter.status(f"Extracting {name}...")
         with tarfile.open(archive_path, mode="r:xz") as tar:
@@ -278,10 +253,7 @@ def install_tinytex_archive(root: Path, reporter: Reporter | None = None) -> Non
                 "Error: TinyTeX archive did not contain a TinyTeX runtime."
             )
         extracted_root.rename(root)
-    if tinytex_bundle() == "TinyTeX-0":
-        bootstrap_tinytex(root, reporter)
-    else:
-        update_tinytex_manager(root, reporter)
+    update_tinytex_manager(root, reporter)
     tinytex_bin_dir(root)
 
 
