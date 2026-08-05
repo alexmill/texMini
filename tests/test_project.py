@@ -180,6 +180,7 @@ class ProjectTest(unittest.TestCase):
                 project.check_bibliography(str(source), [])
 
         self.assertIn("references-not-present.bib", errors.getvalue())
+        self.assertNotIn("Multiple bibliography files found", errors.getvalue())
 
     def test_explicit_bibliography_path_satisfies_source_reference(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

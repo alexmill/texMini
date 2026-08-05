@@ -398,13 +398,13 @@ def check_bibliography(
             reporter.warning(
                 f"You may need to add \\addbibresource{{{bib_file}}} to your document."
             )
-    elif not detected_bib_files and not missing_referenced:
-        reporter.warning(
-            f"Warning: Bibliography commands were found in {tex_file}, but no .bib files were found."
-        )
-    else:
+    elif len(detected_bib_files) > 1:
         reporter.warning(
             f"Warning: Multiple bibliography files found: {' '.join(detected_bib_files)}"
+        )
+    elif not missing_referenced:
+        reporter.warning(
+            f"Warning: Bibliography commands were found in {tex_file}, but no .bib files were found."
         )
 
 

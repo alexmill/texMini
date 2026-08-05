@@ -253,6 +253,8 @@ With `--clean`, texMini removes supported bibliography, index, glossary, acronym
 
 Normal builds show short, stable progress messages and suppress successful `tlmgr`, TeX, Metafont, Biber, and `latexmk` transcripts. Warnings that affect the finished document, including unresolved references and missing characters, remain visible.
 
+texMini provisions its managed toolchain and runs the document's declared build. It does not repair the document or attempt to diagnose the full range of LaTeX errors. The [diagnostic responsibility principle](docs/diagnostic-responsibility.md) defines this boundary and how texMini surfaces ordinary TeX failures.
+
 Use `--verbose` to stream complete subprocess output. On failure, the default output shows the primary LaTeX error and source line when available, points to the retained log, and warns when the failed invocation created or changed the PDF.
 
 A PDF with missing characters or unresolved citations or references is an incomplete build. texMini retains the PDF and diagnostic files, prints the content-loss warnings beside the final result, and exits with a nonzero status.
@@ -305,6 +307,8 @@ texMini targets ordinary projects that build with real TeX Live, `latexmk`, and 
 - `TEXMINI_PACKAGE_MAP`: package mapping cache; defaults to `~/.texmini/package-map.json`.
 
 ## Development
+
+Changes to automatic recovery and error reporting must follow the [diagnostic responsibility principle](docs/diagnostic-responsibility.md).
 
 Run texMini from the source tree:
 

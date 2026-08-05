@@ -162,7 +162,9 @@ class CliTest(unittest.TestCase):
                 os.chdir(directory)
                 source_directory = Path("docs")
                 source_directory.mkdir()
-                (source_directory / "paper.tex").write_text("source", encoding="utf-8")
+                (source_directory / "paper.tex").write_text(
+                    "\\bibliography{missing}\n", encoding="utf-8"
+                )
                 (source_directory / "paper.pdf").write_text("pdf", encoding="utf-8")
                 (source_directory / "paper.aux").write_text("state", encoding="utf-8")
                 (source_directory / "paper.log").write_text(
@@ -186,6 +188,8 @@ class CliTest(unittest.TestCase):
         self.assertNotIn("Built docs/paper.pdf in 0.14s", output.getvalue())
         self.assertIn("undefined citations", errors.getvalue())
         self.assertIn("missing document content", errors.getvalue())
+        self.assertIn("missing.bib", errors.getvalue())
+        self.assertNotIn("Multiple bibliography files found", errors.getvalue())
         self.assertTrue(auxiliary_retained)
         self.assertTrue(log_retained)
 
