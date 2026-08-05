@@ -155,6 +155,47 @@ class ProjectTest(unittest.TestCase):
             {path.name for path in requirements.sources}, {"main.tex", "chapter.tex"}
         )
 
+    def test_source_requirements_detect_eps_converter(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "figure.eps").write_text("eps", encoding="utf-8")
+            source = root / "paper.tex"
+            source.write_text(
+                "\\includegraphics{figure}\\includegraphics{other.eps}\n",
+                encoding="utf-8",
+            )
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertIn("repstopdf", requirements.tools)
+
+    def test_missing_referenced_bibliography_is_named(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text(
+                "\\bibliography{references-not-present}\n", encoding="utf-8"
+            )
+            errors = io.StringIO()
+            with redirect_stderr(errors):
+                project.check_bibliography(str(source), [])
+
+        self.assertIn("references-not-present.bib", errors.getvalue())
+
+    def test_explicit_bibliography_path_satisfies_source_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_directory = root / "paper"
+            source_directory.mkdir()
+            source = source_directory / "paper.tex"
+            source.write_text("\\bibliography{refs}\n", encoding="utf-8")
+            bibliography = root / "refs.bib"
+            bibliography.write_text("@book{x}\n", encoding="utf-8")
+            errors = io.StringIO()
+            with redirect_stderr(errors):
+                project.check_bibliography(str(source), [str(bibliography)])
+
+        self.assertEqual(errors.getvalue(), "")
+
     def test_bibliography_discovery_uses_source_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source_directory = Path(directory) / "docs"
@@ -181,6 +222,20 @@ class ProjectTest(unittest.TestCase):
 
         self.assertEqual(files, ["geometry.sty", "tcrm1000.tfm"])
         self.assertEqual(packages, ["biber"])
+
+    def test_log_requirements_extract_encoding_and_scalable_font_package(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "paper.log"
+            log.write_text(
+                "pdfTeX error: pdflatex (file 8r.enc): cannot open encoding file for reading\n"
+                "pdfTeX error (font expansion): auto expansion is only possible with scalable fonts\n",
+                encoding="utf-8",
+            )
+
+            files, packages = project.tex_log_requirements(log)
+
+        self.assertEqual(files, ["8r.enc"])
+        self.assertEqual(packages, ["cm-super"])
 
     def test_log_requirements_ignore_optional_missing_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

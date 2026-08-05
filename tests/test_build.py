@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 import os
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -196,6 +198,110 @@ Latexmk: Base name of generated files:
         self.assertTrue(outcome.pdf_changed)
         self.assertTrue(pdf_exists)
 
+    def test_backend_forces_build_when_requested_synctex_artifact_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._managed_root(directory)
+            Path(directory, "paper.tex").write_text("source", encoding="utf-8")
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                with (
+                    patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
+                    patch(
+                        "texmini.build.missing_tinytex_source_files", return_value=[]
+                    ),
+                    patch(
+                        "texmini.build.resolve_build_layout",
+                        return_value=build.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.build.run_tinytex_compile",
+                        return_value=SimpleNamespace(returncode=0, stdout=""),
+                    ) as compile_document,
+                ):
+                    build.run_tinytex_backend(
+                        "pdflatex",
+                        True,
+                        False,
+                        "paper.tex",
+                        ["-synctex=1", "paper.tex"],
+                    )
+            finally:
+                os.chdir(previous)
+
+        self.assertTrue(compile_document.call_args.kwargs["force"])
+
+    def test_backend_names_required_ghostscript_for_eps_conversion(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._managed_root(directory)
+            Path(directory, "paper.tex").write_text(
+                "\\includegraphics{figure.eps}\n", encoding="utf-8"
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                with (
+                    patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
+                    patch(
+                        "texmini.build.resolve_build_layout",
+                        return_value=build.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.build.executable_on_path_with_env", return_value=None
+                    ),
+                    patch("texmini.build.run_tinytex_compile") as compile_document,
+                ):
+                    outcome = build.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(outcome.returncode, 1)
+        self.assertIn("Ghostscript (gs)", outcome.primary_error.message)
+        compile_document.assert_not_called()
+
+    def test_backend_reruns_stale_failed_latexmk_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._managed_root(directory)
+            Path(directory, "paper.tex").write_text("source", encoding="utf-8")
+            Path(directory, "paper.log").write_text(
+                "! Undefined control sequence.\n", encoding="utf-8"
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                with (
+                    patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
+                    patch(
+                        "texmini.build.missing_tinytex_source_files", return_value=[]
+                    ),
+                    patch(
+                        "texmini.build.resolve_build_layout",
+                        return_value=build.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.build.run_tinytex_compile",
+                        side_effect=[
+                            SimpleNamespace(
+                                returncode=1,
+                                stdout="Latexmk: Nothing to do for 'paper.tex'.\n",
+                            ),
+                            SimpleNamespace(returncode=1, stdout="fresh failure\n"),
+                        ],
+                    ) as compile_document,
+                    redirect_stdout(io.StringIO()),
+                ):
+                    outcome = build.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(outcome.returncode, 1)
+        self.assertEqual(compile_document.call_count, 2)
+        self.assertTrue(compile_document.call_args.kwargs["force"])
+
     def test_backend_continues_beyond_five_dependency_rounds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
@@ -241,6 +347,50 @@ Latexmk: Base name of generated files:
 
         self.assertEqual(outcome.returncode, 0)
         self.assertEqual(install.call_count, 7)
+
+    def test_dependency_progress_names_package_and_round(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._managed_root(directory)
+            Path(directory, "paper.tex").write_text("source", encoding="utf-8")
+            Path(directory, "paper.log").write_text(
+                "pdfTeX error (font expansion): auto expansion is only possible with scalable fonts\n",
+                encoding="utf-8",
+            )
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                output = io.StringIO()
+                with (
+                    patch.dict(os.environ, {"TEXMINI_TINYTEX_ROOT": str(root)}),
+                    patch(
+                        "texmini.build.missing_tinytex_source_files", return_value=[]
+                    ),
+                    patch(
+                        "texmini.build.resolve_build_layout",
+                        return_value=build.default_build_layout("paper.tex"),
+                    ),
+                    patch(
+                        "texmini.build.install_tinytex_packages",
+                        return_value=SimpleNamespace(returncode=0),
+                    ),
+                    patch(
+                        "texmini.build.run_tinytex_compile",
+                        side_effect=[
+                            SimpleNamespace(returncode=1, stdout="failure"),
+                            SimpleNamespace(returncode=0, stdout="success"),
+                        ],
+                    ),
+                    redirect_stdout(output),
+                ):
+                    outcome = build.run_tinytex_backend(
+                        "pdflatex", True, False, "paper.tex", ["paper.tex"]
+                    )
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(outcome.returncode, 0)
+        self.assertIn("package-install round 1 of 20", output.getvalue())
+        self.assertIn("cm-super", output.getvalue())
 
     def test_backend_stops_at_twenty_install_rounds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

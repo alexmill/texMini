@@ -55,6 +55,8 @@ class ReportingTest(unittest.TestCase):
             errors.getvalue().count("could not verify repository signatures"), 1
         )
         self.assertNotIn("package repository", errors.getvalue())
+        self.assertIn("Install GnuPG", errors.getvalue())
+        self.assertIn("then rerun texMini", errors.getvalue())
 
     def test_document_warnings_filters_layout_chatter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -90,6 +92,32 @@ class ReportingTest(unittest.TestCase):
             Path("absent.log"), "paper.tex", ["geometry.sty"]
         )
         self.assertEqual(error, model.PrimaryError("geometry.sty is missing"))
+
+    def test_primary_error_names_missing_input_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "paper.log"
+            log.write_text(
+                "! LaTeX Error: File `sections/analysis.tex' not found.\n"
+                "! Emergency stop.\n",
+                encoding="utf-8",
+            )
+
+            error = reporting.primary_latex_error(log, "paper.tex", [])
+
+        self.assertEqual(
+            error, model.PrimaryError("sections/analysis.tex is missing")
+        )
+
+    def test_incomplete_warnings_select_content_loss(self) -> None:
+        warnings = [
+            "Missing character: There is no 東 in font Latin Modern Roman!",
+            "LaTeX Warning: There were undefined citations.",
+            "Package biblatex Warning: Please (re)run Biber.",
+        ]
+
+        incomplete = reporting.incomplete_document_warnings(warnings)
+
+        self.assertEqual(incomplete, warnings[:2])
 
     def test_failure_reports_tlmgr_install_error_after_missing_file(self) -> None:
         outcome = model.BuildOutcome(
