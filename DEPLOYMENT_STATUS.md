@@ -2,34 +2,33 @@
 
 Last verified: 2026-08-05
 
-texMini `0.4.3` is publicly available from PyPI, GHCR, and GitHub Releases. The release contains the fixes for [issue #15](https://github.com/alexmill/texMini/issues/15). GitHub Actions published the Python distributions through PyPI Trusted Publishing and published the multi-architecture container with provenance.
+texMini `0.5.0` is publicly available from PyPI, GHCR, and GitHub Releases. The release adopts TinyTeX-1 as the shared baseline for new native runtimes and Docker runtime volumes. GitHub Actions published the Python distributions through PyPI Trusted Publishing and published the multi-architecture container with provenance.
 
 ## Release
 
-- Issue-fix commit: [`ef5f39d`](https://github.com/alexmill/texMini/commit/ef5f39d13348355464378b8802b81b107c0a4472)
-- Release commit: [`da92681`](https://github.com/alexmill/texMini/commit/da92681516c4fe6a39558bf347e23482c41106cd)
-- Annotated tag: [`v0.4.3`](https://github.com/alexmill/texMini/tree/v0.4.3)
-- Passing release-preparation CI: [run 31040931927](https://github.com/alexmill/texMini/actions/runs/31040931927)
-- Passing release workflow: [run 31041183374](https://github.com/alexmill/texMini/actions/runs/31041183374)
-- PyPI: <https://pypi.org/project/texmini/0.4.3/>
-- GitHub Release: <https://github.com/alexmill/texMini/releases/tag/v0.4.3>
-- GHCR: `ghcr.io/alexmill/texmini:0.4.3`
+- Release commit: [`fa4920c`](https://github.com/alexmill/texMini/commit/fa4920ccdf15fb166d0e92edcf1c9a2e2d230415)
+- Annotated tag: [`v0.5.0`](https://github.com/alexmill/texMini/tree/v0.5.0)
+- Passing main-branch CI: [run 31054416537](https://github.com/alexmill/texMini/actions/runs/31054416537)
+- Passing release workflow: [run 31054846778](https://github.com/alexmill/texMini/actions/runs/31054846778)
+- PyPI: <https://pypi.org/project/texmini/0.5.0/>
+- GitHub Release: <https://github.com/alexmill/texMini/releases/tag/v0.5.0>
+- GHCR: `ghcr.io/alexmill/texmini:0.5.0`
 - GHCR rolling tag: `ghcr.io/alexmill/texmini:latest`
 
-The `0.4.3` and `latest` GHCR tags resolve to the same public image index:
+The `0.5.0`, `0.5`, `0`, and `latest` GHCR tags resolve to the same public image index:
 
 ```text
-sha256:5bc102dbeee3219b3e9e010af687678caa840854ba884ec8a933b7a06a7d8098
+sha256:7bd209eabdb69a884da44e680d32abe0d4bed745fd3e991ecd359a4fb7d8cf62
 ```
 
 The image index contains these platform manifests:
 
 | Platform | Manifest digest |
 | --- | --- |
-| `linux/amd64` | `sha256:225afc8cf2b1a6d2be0a8c78ee089659e6b16c4e498f4235e4c3c3e898b81016` |
-| `linux/arm64` | `sha256:14d650b97a0caa3fc15cd0c9b20021a3e2b047b116cca0b0fe41078e625c8578` |
+| `linux/amd64` | `sha256:db198e0e3a7206e97ec808e551e1e03156c81e2c179b85c9a5ac400eea8acd5b` |
+| `linux/arm64` | `sha256:f36b92bbf06a13789e46350a58a923afc6e0368550aabd09faa2c4e18e3e7bf5` |
 
-`gh attestation verify oci://ghcr.io/alexmill/texmini:0.4.3 --repo alexmill/texMini` completed successfully.
+`gh attestation verify oci://ghcr.io/alexmill/texmini:0.5.0 --repo alexmill/texMini` completed successfully.
 
 ## Package Integrity
 
@@ -37,21 +36,27 @@ The artifacts attached to the GitHub Release match the files served by PyPI:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `texmini-0.4.3-py3-none-any.whl` | `20bd07f113abe50e1cfec00641bd172da99daa197e8da830687614853d0634a5` |
-| `texmini-0.4.3.tar.gz` | `5cb24fdc7cc567f54279770767541a72fa934b926182f1fd1dd31e76b94a33ec` |
+| `texmini-0.5.0-py3-none-any.whl` | `0f925ee31519bbb743a823f83b3d36cdff76aa96e4b2681745574aaa217ef51a` |
+| `texmini-0.5.0.tar.gz` | `f4b7ea9f1e0761908a879353bc6da32a6fdaa163eeb09d0c2f0d333c8ee242ac` |
 
 PyPI publication uses GitHub Actions OIDC with repository `alexmill/texMini`, workflow `release.yml`, and environment `pypi`. The protected environment required and received approval from the `alexmill` account.
 
 ## Verification Results
 
-- All 90 unit tests passed locally and in the release package job.
+- All 95 unit and packaging tests passed locally and in CI.
 - The wheel and source distribution passed Twine validation, and the release workflow installed and tested the wheel.
-- Release-preparation CI passed on macOS and Ubuntu, including fresh managed runtimes, amd64 and arm64 Docker builds, adaptive package installation, ownership behavior, package validation, and workflow validation.
-- The release Docker smoke job compiled the fixture set with adaptive package installation and verified image ownership behavior.
-- A fresh `uvx --index-url https://pypi.org/simple --from texmini==0.4.3 texmini --version` invocation returned `0.4.3`.
+- Main-branch CI passed on macOS and Ubuntu, including fresh native TinyTeX-1 runtimes, amd64 and arm64 Docker builds, adaptive package installation, ownership behavior, package validation, and workflow validation.
+- The release workflow ran the full Docker fixture suite on amd64 and representative pdfLaTeX and Biber builds on arm64.
+- A clean `texmini==0.5.0` installation from public PyPI provisioned TinyTeX-1 and compiled the simple fixture.
+- A clean Docker runtime volume compiled the simple fixture with the published `0.5.0` image. A second container reused the volume and reported that the PDF was up to date.
 - PyPI and the GitHub Release report identical wheel and source archive hashes.
-- The versioned and rolling GHCR tags report the same image and platform manifest digests.
+- The versioned, major-minor, major, and rolling GHCR tags report the same image index digest.
+- The published image index contains amd64 and arm64 manifests.
 - GitHub provenance verification succeeded for the versioned GHCR image.
+
+## TinyTeX-1 Observations
+
+The native benchmark used the August 2026 TinyTeX-1 archive for macOS arm64. The archive contained 67,051,368 bytes. The installed runtime used 342,211,981 logical bytes and 360,333,312 allocated bytes after the benchmark builds. All cold benchmark builds completed, and texMini installed additional TeX Live packages as each fixture required them. These measurements describe one run; they are not release gates.
 
 ## Release Configuration
 
