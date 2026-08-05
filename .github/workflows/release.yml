@@ -66,30 +66,41 @@ jobs:
 
   docker-smoke:
     needs: package
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            smoke_profile: full
+          - platform: linux/arm64
+            arch: arm64
+            smoke_profile: representative
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Build release candidate
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           load: true
-          tags: texmini:release-candidate
-          cache-from: type=gha,scope=ci-amd64
-          cache-to: type=gha,mode=max,scope=ci-amd64
+          tags: texmini:release-candidate-${{ matrix.arch }}
+          cache-from: type=gha,scope=ci-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=ci-${{ matrix.arch }}
       - name: Compile fixtures with adaptive package installation
         run: |
-          test "$(docker run --rm texmini:release-candidate --version)" = "${{ needs.package.outputs.version }}"
-          tests/smoke_docker.sh texmini:release-candidate
+          test "$(docker run --rm texmini:release-candidate-${{ matrix.arch }} --version)" = "${{ needs.package.outputs.version }}"
+          tests/smoke_docker.sh texmini:release-candidate-${{ matrix.arch }} ${{ matrix.smoke_profile }}
       - name: Verify release image ownership behavior
+        if: matrix.arch == 'amd64'
         run: |
           ownership_dir="$RUNNER_TEMP/default-ownership"
           mkdir -p "$ownership_dir"
           cp tests/fixtures/simple/simple.tex "$ownership_dir/"
-          docker run --rm -v "$ownership_dir:/work" texmini:release-candidate simple.tex
+          docker run --rm -v "$ownership_dir:/work" texmini:release-candidate-amd64 simple.tex
           test "$(stat -c %u "$ownership_dir/simple.pdf")" = "$(id -u)"
           arbitrary_dir="$RUNNER_TEMP/arbitrary-uid"
           mkdir -p "$arbitrary_dir"
@@ -98,7 +109,7 @@ jobs:
           docker run --rm \
             --user 12345:12345 \
             -v "$arbitrary_dir:/work" \
-            texmini:release-candidate simple.tex
+            texmini:release-candidate-amd64 simple.tex
           test "$(stat -c %u "$arbitrary_dir/simple.pdf")" = 12345
 
   publish-pypi:

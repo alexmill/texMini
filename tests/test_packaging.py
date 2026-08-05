@@ -45,7 +45,7 @@ class PackagingTest(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "0.4.3")
+            self.assertEqual(version.stdout.strip(), "0.5.0")
 
             help_result = subprocess.run(
                 [str(bin_dir / "texmini"), "--help"],
@@ -116,22 +116,23 @@ class PackagingTest(unittest.TestCase):
     def test_dockerfile_pins_supported_tinytex_archives(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
-        self.assertIn("TINYTEX_VERSION=2026.07", dockerfile)
+        self.assertIn("TINYTEX_VERSION=2026.08", dockerfile)
         self.assertIn(
-            "7b107b20dcb7d35069fde8199b70cdc4603298ad77de4706f760dd0e8a432938",
+            "6bcde65cbbc147d6e492fa105a7210a06792d609358ef74a14a95228e3e36656",
             dockerfile,
         )
         self.assertIn(
-            "7eec4fa1f85794a0e254290f45d73c55d84f7d790996aea94eddde4cf7e9d5b7",
+            "7f4a52d8cb85a6d7056a12eb132b989180cd883d408741181a0fe4e8775fb9d4",
             dockerfile,
         )
         self.assertIn("python:3.12-slim-bookworm@sha256:", dockerfile)
         self.assertIn("debian:bookworm-slim@sha256:", dockerfile)
         self.assertIn("ghcr.io/astral-sh/uv:0.11.20@sha256:", dockerfile)
         self.assertIn("uv build --wheel", dockerfile)
-        self.assertIn('archive="TinyTeX-0-${platform}', dockerfile)
-        self.assertIn("COPY docker-packages.txt /tmp/docker-packages.txt", dockerfile)
-        self.assertIn("tlmgr install < /tmp/docker-packages.txt", dockerfile)
+        self.assertIn('archive="TinyTeX-1-${platform}', dockerfile)
+        self.assertIn('test -x "${tex_bin}/latexmk"', dockerfile)
+        self.assertNotIn("docker-packages.txt", dockerfile)
+        self.assertNotIn("tlmgr install", dockerfile)
         self.assertNotIn("makeindex imakeidx glossaries", dockerfile)
         self.assertNotIn("enumitem microtype", dockerfile)
         self.assertIn("curl fontconfig", dockerfile)
@@ -139,33 +140,18 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("util-linux", dockerfile)
         self.assertIn("xz-utils", dockerfile)
         self.assertIn("TEXMINI_PACKAGE_MAP=/opt/TinyTeX/", dockerfile)
-        self.assertIn("TEXMINI_TINYTEX_BUNDLE=TinyTeX-0", dockerfile)
+        self.assertNotIn("TEXMINI_TINYTEX_BUNDLE", dockerfile)
         self.assertIn("RUN chmod -R a+rwX /opt/TinyTeX", dockerfile)
         self.assertIn("COPY --chmod=755 docker-entrypoint.sh", dockerfile)
         self.assertIn('ENTRYPOINT ["texmini-entrypoint"]', dockerfile)
         self.assertNotIn("nix", dockerfile.lower())
 
-    def test_docker_build_consumes_the_checked_in_package_manifest(self) -> None:
+    def test_docker_build_uses_tinytex_one_without_a_supplement_manifest(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-        packages = (
-            (ROOT / "docker-packages.txt").read_text(encoding="utf-8").splitlines()
-        )
 
-        self.assertEqual(
-            packages,
-            [
-                "latex-bin",
-                "latexmk",
-                "metafont",
-                "mfware",
-                "biblatex",
-                "biber",
-                "bibtex",
-                "natbib",
-                "csquotes",
-            ],
-        )
-        self.assertNotIn("tlmgr install \\\n+    latex-bin", dockerfile)
+        self.assertFalse((ROOT / "docker-packages.txt").exists())
+        self.assertIn("TinyTeX-1-${platform}", dockerfile)
+        self.assertNotIn("xargs env", dockerfile)
 
     def test_docker_entrypoint_matches_work_directory_ownership(self) -> None:
         entrypoint = (ROOT / "docker-entrypoint.sh").read_text(encoding="utf-8")
@@ -207,7 +193,6 @@ class PackagingTest(unittest.TestCase):
                 "*",
                 "!Dockerfile",
                 "!docker-entrypoint.sh",
-                "!docker-packages.txt",
                 "!LICENSE",
                 "!README.md",
                 "!pyproject.toml",

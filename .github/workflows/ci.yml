@@ -69,8 +69,20 @@ jobs:
           cp tests/fixtures/bibliography/bibliography.tex "$RUNNER_TEMP/subdirectory/docs/paper.tex"
           cp tests/fixtures/bibliography/refs.bib "$RUNNER_TEMP/subdirectory/docs/"
           cp -R tests/fixtures/bibtex tests/fixtures/biblatex-bibtex tests/fixtures/index tests/fixtures/glossary tests/fixtures/glossary-xindy tests/fixtures/glossaries-extra tests/fixtures/nomenclature tests/fixtures/minted tests/fixtures/multifile tests/fixtures/engine-directives "$RUNNER_TEMP/common/"
+          "$UV_TOOL_BIN_DIR/texmini" install-tinytex
+          tex_bin=""
+          for candidate in "$TEXMINI_TINYTEX_ROOT"/bin/*; do
+            if [[ -x "$candidate/latexmk" ]]; then tex_bin="$candidate"; break; fi
+          done
+          test -n "$tex_bin"
+          test -x "$tex_bin/latexmk"
+          test -x "$tex_bin/pdflatex"
+          PATH="$tex_bin:$PATH" tlmgr install geometry
+          PATH="$tex_bin:$PATH" tlmgr remove --force geometry
           cd "$RUNNER_TEMP/engines/pdflatex"
-          "$UV_TOOL_BIN_DIR/texmini" --engine pdflatex simple.tex
+          first_output="$("$UV_TOOL_BIN_DIR/texmini" --engine pdflatex simple.tex)"
+          printf '%s\n' "$first_output"
+          grep -q "Installing 1 package: geometry" <<< "$first_output"
           test -s simple.pdf
           second_output="$("$UV_TOOL_BIN_DIR/texmini" simple.tex)"
           printf '%s\n' "$second_output"
@@ -155,8 +167,10 @@ jobs:
         include:
           - platform: linux/amd64
             arch: amd64
+            smoke_profile: full
           - platform: linux/arm64
             arch: arm64
+            smoke_profile: representative
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -175,8 +189,7 @@ jobs:
       - name: Verify CLI
         run: docker run --rm texmini:test --version
       - name: Compile with adaptive package installation
-        if: matrix.arch == 'amd64'
-        run: tests/smoke_docker.sh texmini:test
+        run: tests/smoke_docker.sh texmini:test ${{ matrix.smoke_profile }}
       - name: Preserve explicit arbitrary UID behavior
         if: matrix.arch == 'amd64'
         run: |
