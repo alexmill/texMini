@@ -155,7 +155,7 @@ class CliTest(unittest.TestCase):
         self.assertIn("paper.pdf is up to date", output.getvalue())
         self.assertIn("Removed auxiliary build files", output.getvalue())
 
-    def test_main_reports_warns_and_cleans_subdirectory_artifacts(self) -> None:
+    def test_main_marks_incomplete_document_and_retains_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             previous = Path.cwd()
             try:
@@ -177,14 +177,40 @@ class CliTest(unittest.TestCase):
                     redirect_stderr(errors),
                 ):
                     result = cli.main(["--clean", "docs/paper.tex"])
+                auxiliary_retained = (source_directory / "paper.aux").exists()
+                log_retained = (source_directory / "paper.log").exists()
             finally:
                 os.chdir(previous)
 
-        self.assertEqual(result, 0)
-        self.assertIn("Built docs/paper.pdf in 0.14s", output.getvalue())
+        self.assertEqual(result, 1)
+        self.assertNotIn("Built docs/paper.pdf in 0.14s", output.getvalue())
         self.assertIn("undefined citations", errors.getvalue())
-        self.assertFalse(Path(directory, "docs", "paper.aux").exists())
-        self.assertFalse(Path(directory, "docs", "paper.log").exists())
+        self.assertIn("missing document content", errors.getvalue())
+        self.assertTrue(auxiliary_retained)
+        self.assertTrue(log_retained)
+
+    def test_verbose_main_still_marks_incomplete_document(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            previous = Path.cwd()
+            try:
+                os.chdir(directory)
+                Path("paper.tex").write_text("source", encoding="utf-8")
+                Path("paper.log").write_text(
+                    "Missing character: There is no 東 in font cmr10!\n",
+                    encoding="utf-8",
+                )
+                outcome = model.BuildOutcome(0, 0.14, True)
+                errors = io.StringIO()
+                with (
+                    patch("texmini.cli.run_tinytex_backend", return_value=outcome),
+                    redirect_stderr(errors),
+                ):
+                    result = cli.main(["--verbose", "paper.tex"])
+            finally:
+                os.chdir(previous)
+
+        self.assertEqual(result, 1)
+        self.assertIn("missing document content", errors.getvalue())
 
     def test_main_rejects_missing_source_before_backend_setup(self) -> None:
         output = io.StringIO()

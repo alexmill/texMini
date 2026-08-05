@@ -33,7 +33,11 @@ class Reporter:
             self.warning(
                 "Warning: TeX Live could not verify repository signatures because GPG is unavailable."
             )
-            self.warning("Use --verbose for details.")
+            self.warning(
+                "TeX Live continued without signature verification. Install GnuPG "
+                "(`brew install gnupg` on macOS or your system's gnupg package), "
+                "then rerun texMini."
+            )
             self._gpg_warning_printed = True
 
 
@@ -83,6 +87,14 @@ def primary_latex_error(
     if not log_path.is_file():
         return None
     source = log_path.read_text(encoding="utf-8", errors="replace")
+    missing_input = re.search(
+        r"(?:LaTeX Error:\s+File|I (?:can't|cannot) find file)\s+"
+        r"[`'\"]?([^`'\"\s]+\.tex)[`'\"]?\s*(?:not found)?",
+        source,
+        re.IGNORECASE,
+    )
+    if missing_input:
+        return PrimaryError(f"{missing_input.group(1)} is missing")
     file_line = re.search(r"^(.*?\.tex):(\d+):\s*(?:!\s*)?(.+)$", source, re.MULTILINE)
     if file_line:
         return PrimaryError(
@@ -128,6 +140,20 @@ def document_warnings(log_path: Path) -> list[str]:
         ):
             warnings.append(stripped)
     return warnings
+
+
+def incomplete_document_warnings(warnings: list[str]) -> list[str]:
+    patterns = (
+        re.compile(r"Missing character:", re.IGNORECASE),
+        re.compile(
+            r"undefined (?:citation|reference|citations|references)", re.IGNORECASE
+        ),
+    )
+    return [
+        warning
+        for warning in warnings
+        if any(pattern.search(warning) for pattern in patterns)
+    ]
 
 
 def show_resolution_mappings(resolved: dict[str, str], reporter: Reporter) -> None:

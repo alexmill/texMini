@@ -84,6 +84,11 @@ def missing_file_patterns() -> list[re.Pattern[str]]:
                 r"pdfTeX error:.*?\(file\s+([A-Za-z0-9_.-]+)\):\s+Font\b[^\n]*\bnot found",
                 re.IGNORECASE,
             ),
+            re.compile(
+                rf"pdfTeX error:.*?\(file\s+([^()\s]+\.({MISSING_FILE_EXTENSIONS}))\):"
+                r"\s+cannot open\b[^\n]*\bfor reading",
+                re.IGNORECASE,
+            ),
         ]
     return _missing_file_patterns
 
@@ -233,6 +238,19 @@ def analyze_source_requirements(tex_file: str) -> SourceRequirements:
         or package_names & {"makeidx", "imakeidx", "nomencl"}
     ):
         tools.append("makeindex")
+    include_graphics_pattern = re.compile(
+        r"\\includegraphics(?:\[[^\]]*\])?\s*\{([^}]+)\}"
+    )
+    for source_path in source_paths:
+        source_text = strip_tex_comments(read_source_file(os.fspath(source_path)))
+        for match in include_graphics_pattern.finditer(source_text):
+            figure = Path(match.group(1).strip())
+            if figure.suffix.lower() == ".eps" or (
+                not figure.suffix
+                and (source_path.parent / figure).with_suffix(".eps").is_file()
+            ):
+                tools.append("repstopdf")
+                break
 
     return SourceRequirements(
         tuple(found),
@@ -332,6 +350,25 @@ def check_bibliography(
             bib_file in referenced or path.name in referenced or path.stem in referenced
         )
 
+    source_directory = Path(tex_path).parent
+    missing_referenced = sorted(
+        item if Path(item).suffix else f"{item}.bib"
+        for item in referenced
+        if not (
+            source_directory
+            / (item if Path(item).suffix else f"{item}.bib")
+        ).is_file()
+        and not any(
+            os.path.isfile(bib_file) and is_referenced(bib_file)
+            for bib_file in bib_files
+        )
+    )
+    if missing_referenced:
+        reporter.warning(
+            "Warning: Bibliography files referenced by "
+            f"{tex_file} were not found: {', '.join(missing_referenced)}"
+        )
+
     if bib_files:
         for bib_file in bib_files:
             if not os.path.isfile(bib_file):
@@ -347,7 +384,6 @@ def check_bibliography(
                 )
         return
 
-    source_directory = Path(tex_path).parent
     detected_bib_files = sorted(
         entry.name
         for entry in os.scandir(source_directory)
@@ -362,7 +398,7 @@ def check_bibliography(
             reporter.warning(
                 f"You may need to add \\addbibresource{{{bib_file}}} to your document."
             )
-    elif not detected_bib_files:
+    elif not detected_bib_files and not missing_referenced:
         reporter.warning(
             f"Warning: Bibliography commands were found in {tex_file}, but no .bib files were found."
         )
@@ -420,4 +456,10 @@ def tex_log_requirements(log_path: Path) -> tuple[list[str], list[str]]:
         if "Package biblatex Warning:" in source and "Please (re)run Biber" in source
         else []
     )
+    if re.search(
+        r"font expansion\):\s*auto expansion is only possible with scalable fonts",
+        source,
+        re.IGNORECASE,
+    ):
+        direct_packages.append("cm-super")
     return found, direct_packages

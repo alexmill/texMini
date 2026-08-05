@@ -26,9 +26,11 @@ DIRECT_TOOL_PACKAGES = {
     "bibtex": "bibtex",
     "makeglossaries": "glossaries",
     "makeindex": "makeindex",
+    "repstopdf": "epstopdf",
     "xindy": "xindy",
 }
 COMMON_TEXLIVE_FILE_PACKAGES = {
+    "8r.enc": "dvips",
     "amsmath.sty": "amsmath",
     "authoryear.bbx": "biblatex",
     "authoryear-comp.bbx": "biblatex",

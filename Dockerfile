@@ -49,7 +49,7 @@ RUN set -eux; \
 FROM ${PYTHON_IMAGE} AS runtime
 
 RUN apt-get update \
-  && apt-get install --yes --no-install-recommends ca-certificates curl fontconfig libncurses6 perl util-linux xz-utils \
+  && apt-get install --yes --no-install-recommends ca-certificates curl fontconfig ghostscript libncurses6 perl util-linux xz-utils \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=python-build /opt/texmini /opt/texmini
 COPY --from=tinytex /opt/TinyTeX /opt/TinyTeX

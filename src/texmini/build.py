@@ -26,6 +26,7 @@ from .reporting import (
     Reporter,
     document_warnings,
     format_elapsed,
+    incomplete_document_warnings,
     primary_latex_error,
     report_failure,
     run_command,
@@ -214,6 +215,29 @@ def pdf_snapshot(path: Path) -> tuple[int, int] | None:
     return stat_result.st_mtime_ns, stat_result.st_size
 
 
+def synctex_artifact_requested(
+    latexmk_args: list[str] | tuple[str, ...], layout: BuildLayout
+) -> bool:
+    values = [
+        match.group(1)
+        for argument in latexmk_args
+        if (match := re.match(r"^-+synctex(?:=(.*))?$", argument, re.IGNORECASE))
+    ]
+    enabled = bool(values) and values[-1] not in {"0", "-1"}
+    artifacts = {
+        layout.aux_dir / f"{layout.jobname}.synctex.gz",
+        layout.out_dir / f"{layout.jobname}.synctex.gz",
+    }
+    return enabled and not any(artifact.is_file() for artifact in artifacts)
+
+
+def stale_failed_build(result: subprocess.CompletedProcess[str]) -> bool:
+    if result.returncode == 0:
+        return False
+    output = (getattr(result, "stdout", "") or "").lower()
+    return "nothing to do" in output or "up-to-date" in output
+
+
 def _run_build(request: BuildRequest, reporter: Reporter) -> BuildOutcome:
     root = tinytex_root()
     install_tinytex_archive(root, reporter)
@@ -225,6 +249,21 @@ def _run_build(request: BuildRequest, reporter: Reporter) -> BuildOutcome:
     pdf_before = pdf_snapshot(layout.pdf_path)
     requirements = analyze_source_requirements(request.tex_file)
     source_files = list(requirements.files)
+    if (
+        "repstopdf" in requirements.tools
+        and executable_on_path_with_env("gs", env) is None
+    ):
+        return BuildOutcome(
+            1,
+            monotonic() - request.started_at,
+            pdf_snapshot(layout.pdf_path) != pdf_before,
+            failure_kind=FailureKind.ORDINARY,
+            primary_error=PrimaryError(
+                "EPS conversion requires Ghostscript (gs); install Ghostscript "
+                "with your operating system's package manager and retry"
+            ),
+            layout=layout,
+        )
     if requirements.uses_minted and "-shell-escape" not in request.latexmk_args:
         return BuildOutcome(
             1,
@@ -295,10 +334,24 @@ def _run_build(request: BuildRequest, reporter: Reporter) -> BuildOutcome:
         request.engine,
         request.latexmk_args,
         root,
+        force=synctex_artifact_requested(request.latexmk_args, layout),
         env=env,
         reporter=reporter,
         cwd=Path.cwd(),
     )
+    if stale_failed_build(result):
+        reporter.status(
+            "Previous failed build state found; rerunning TeX for fresh diagnostics."
+        )
+        result = run_tinytex_compile(
+            request.engine,
+            request.latexmk_args,
+            root,
+            force=True,
+            env=env,
+            reporter=reporter,
+            cwd=Path.cwd(),
+        )
     last_missing_files: list[str] = []
     last_unmapped_files: list[str] = []
 
@@ -351,7 +404,11 @@ def _run_build(request: BuildRequest, reporter: Reporter) -> BuildOutcome:
         qualifier = (
             f"required {noun}" if install_rounds == 0 else f"additional {dependency}"
         )
-        reporter.status(f"Installing {len(packages)} {qualifier}...")
+        reporter.status(
+            f"Installing {len(packages)} {qualifier} "
+            f"(package-install round {install_rounds + 1} of {MAX_INSTALL_ROUNDS}): "
+            f"{', '.join(packages)}"
+        )
         install_result = install_tinytex_packages(root, packages, env, reporter)
         attempted_packages.update(packages)
         install_rounds += 1
@@ -447,10 +504,21 @@ def report_build_result(
     if outcome.returncode != 0:
         report_failure(outcome, tex_file, auto_install, reporter)
         return outcome.returncode
+    warnings = document_warnings(layout.log_path)
     if not verbose:
-        for warning in document_warnings(layout.log_path):
+        for warning in warnings:
             reporter.warning(warning)
     elapsed = format_elapsed(outcome.elapsed_seconds)
+    incomplete_warnings = incomplete_document_warnings(warnings)
+    if incomplete_warnings:
+        reporter.error(
+            f"Built {layout.display_pdf} with missing document content in {elapsed}."
+        )
+        reporter.error(
+            "The PDF contains missing characters or unresolved citations or references."
+        )
+        reporter.error("Auxiliary build files were retained for diagnosis.")
+        return 1
     if outcome.pdf_changed:
         reporter.status(f"Built {layout.display_pdf} in {elapsed}")
         if not clean:

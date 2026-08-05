@@ -63,6 +63,11 @@ class RuntimeTest(unittest.TestCase):
         self.assertEqual(resolved, {"custom.sty": "custom-package"})
         run.assert_not_called()
 
+    def test_common_runtime_mappings_cover_issue_font_and_eps_dependencies(self) -> None:
+        self.assertEqual(runtime.common_texlive_package_for_file("8r.enc"), "dvips")
+        self.assertEqual(runtime.common_texlive_package_for_file("tcrm0700.tfm"), "ec")
+        self.assertEqual(runtime.DIRECT_TOOL_PACKAGES["repstopdf"], "epstopdf")
+
     def test_resolver_uses_tlmgr_search_and_updates_cache(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             cache = Path(directory) / "map.json"

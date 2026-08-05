@@ -66,9 +66,10 @@ uvx texmini paper.tex
 
 The first compile downloads TinyTeX-0 into `~/.texmini/TinyTeX`, bootstraps the compiler, and installs the packages required by `paper.tex`. Later builds reuse that runtime.
 
-For repeated authoring, use the default incremental workflow:
+Install the command for repeated authoring:
 
 ```bash
+uv tool install texmini
 texmini paper.tex
 ```
 
@@ -76,13 +77,6 @@ texMini retains LaTeX's auxiliary build state so unchanged builds and partial re
 
 ```bash
 texmini --clean paper.tex
-```
-
-Install the command for repeated use:
-
-```bash
-uv tool install texmini
-texmini paper.tex
 ```
 
 If a directory contains exactly one `.tex` file, the filename is optional:
@@ -112,6 +106,8 @@ causes texMini to:
 For a path such as `docs/paper.tex`, texMini uses `latexmk -cd`, so sibling bibliographies, included files, logs, auxiliary state, and `paper.pdf` remain with the source. A root-level `latexmkrc` still loads and can configure the project.
 
 Package mappings are cached in `~/.texmini/package-map.json`. Package installation modifies only texMini's private TinyTeX tree.
+
+TeX Live reports a warning when GnuPG is unavailable because package repository signatures cannot be verified. TeX Live continues the installation. Run `brew install gnupg` on macOS, or install your system's `gnupg` package, then rerun texMini to restore signature verification.
 
 ## Engines and options
 
@@ -258,6 +254,8 @@ With `--clean`, texMini removes supported bibliography, index, glossary, acronym
 Normal builds show short, stable progress messages and suppress successful `tlmgr`, TeX, Metafont, Biber, and `latexmk` transcripts. Warnings that affect the finished document, including unresolved references and missing characters, remain visible.
 
 Use `--verbose` to stream complete subprocess output. On failure, the default output shows the primary LaTeX error and source line when available, points to the retained log, and warns when the failed invocation created or changed the PDF.
+
+A PDF with missing characters or unresolved citations or references is an incomplete build. texMini retains the PDF and diagnostic files, prints the content-loss warnings beside the final result, and exits with a nonzero status.
 
 ## Docker
 
