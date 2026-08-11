@@ -4,37 +4,41 @@
 
 ## Try it now
 
-Choose either path. Both run texMini without a separate texMini installation.
-
-On macOS or Linux with [uv](https://docs.astral.sh/uv/):
+### On macOS or Linux with [uv](https://docs.astral.sh/uv/):
+You can compile a `.tex` document with texMini in seconds with the following command:
 
 ```bash
 uvx texmini paper.tex
 ```
 
-With Docker Desktop or Docker Engine:
+or 
+
+```bash
+uv tool install texmini
+texmini paper.tex
+```
+
+### On Windows (or any platform) with Docker Engine:
 
 ```bash
 docker run --rm -v texmini-runtime:/opt/TinyTeX -v "${PWD}:/work" ghcr.io/alexmill/texmini:latest paper.tex
 ```
 
-The Docker command works in Bash, zsh, and PowerShell. Docker creates the `texmini-runtime` volume automatically so packages installed for one project remain available to later builds. The image downloads on its first use. Pin `ghcr.io/alexmill/texmini:0.5.0` instead of `:latest` when reproducibility matters.
-
-texMini builds existing LaTeX projects with real TeX Live and `latexmk`. New native runtimes and Docker images start from TinyTeX-1. When a document needs another package, texMini finds the corresponding TeX Live package, installs it, and retries the build.
-
-The result is a TeX installation that grows with your documents instead of arriving as a multi-gigabyte desktop distribution. The native runtime lives in `~/.texmini`; the Docker pathway uses the `texmini-runtime` volume. Neither modifies a system TeX installation.
+## How it works
 
 ```text
-paper.tex  ──▶  texmini  ──▶  install what is missing  ──▶  paper.pdf
+paper.tex  ──▶  texmini  ──▶  auto-detect + install what is missing  ──▶  paper.pdf
 ```
 
-pdfLaTeX, LuaLaTeX, XeLaTeX, BibTeX, Biber, indices, glossaries, nomenclatures, and the wider TeX Live package ecosystem remain available. Existing projects do not need to adopt a new document language or a different TeX engine.
+texMini provides a self-contained, zero-install installation LaTeX utility that grows with your documents instead of arriving as a multi-gigabyte desktop distribution. It builds upon [TinyTeX](https://yihui.org/tinytex/) and provides additional packaging/helpers to make the experience of building TeX documents more universal and seamless across platforms. The native runtime lives in `~/.texmini`; the Docker pathway uses the `texmini-runtime` volume. texMini neither requires nor modifies a pre-existing system TeX installation.
+
+The utility uses `latekmk` by default as its native runtime, while also supporting pdfLaTeX, LuaLaTeX, XeLaTeX, as well as common document complications such as bibliographies (BibTeX, Biber), indices, glossaries, and nomenclatures out of the box. The wider TeX Live package ecosystem also remains available. Existing projects do not need to adopt a new document language or a different TeX engine.
 
 ## Why texMini
 
-A conventional TeX installation offers broad compatibility, but asks you to install and maintain an entire distribution. Tectonic offers an excellent self-contained build experience, but uses its own XeTeX-derived engine and cannot replace every traditional TeX engine and utility. TinyTeX provides the small, portable TeX Live foundation used here, while its most automatic missing-package workflow is normally accessed through R.
+A conventional TeX installation offers broad compatibility, but asks you to install and maintain an entire distribution. [Tectonic](https://tectonic-typesetting.github.io/en-US/) offers an excellent self-contained build experience, but uses its own XeTeX-derived engine and cannot replace every traditional TeX engine and utility. TinyTeX provides the small, portable TeX Live foundation used here, while its most automatic missing-package workflow is normally accessed through R.
 
-texMini combines conventional TeX compatibility with a disposable command-line experience:
+texMini combines conventional TeX compatibility with a disposable and maximally portable command-line experience:
 
 - **Use the project you already have.** Build ordinary `.tex` files with TeX Live and `latexmk`.
 - **Install only what the document needs.** Missing classes, packages, fonts, bibliography styles, and Biber are resolved and installed automatically.
