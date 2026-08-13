@@ -18,7 +18,21 @@ class BuildTest(unittest.TestCase):
         root = Path(directory) / "TinyTeX"
         binary = root / "bin" / "test"
         binary.mkdir(parents=True)
-        (binary / "latexmk").write_text("", encoding="utf-8")
+        suffix = ".exe" if os.name == "nt" else ""
+        for name in ("latexmk", "kpsewhich", "pdflatex"):
+            tool = binary / f"{name}{suffix}"
+            tool.write_text("", encoding="utf-8")
+            tool.chmod(0o755)
+        tlmgr = binary / ("tlmgr.bat" if os.name == "nt" else "tlmgr")
+        tlmgr.write_text("", encoding="utf-8")
+        tlmgr.chmod(0o755)
+        if os.name == "nt":
+            runscript = root / "texmf-dist" / "scripts" / "texlive" / "runscript.tlu"
+            perl = root / "tlpkg" / "tlperl" / "bin" / "perl.exe"
+            runscript.parent.mkdir(parents=True)
+            perl.parent.mkdir(parents=True)
+            runscript.write_text("", encoding="utf-8")
+            perl.write_text("", encoding="utf-8")
         return root
 
     def test_cleanup_keeps_sources_pdf_and_unrelated_files(self) -> None:

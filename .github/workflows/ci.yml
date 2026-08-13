@@ -28,7 +28,7 @@ jobs:
   python:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -59,7 +59,6 @@ jobs:
           UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
           TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
           TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/engines/pdflatex" "$RUNNER_TEMP/engines/lualatex" "$RUNNER_TEMP/engines/xelatex" "$RUNNER_TEMP/subdirectory/docs" "$RUNNER_TEMP/common" "$RUNNER_TEMP/layout"
           cp tests/fixtures/simple/simple.tex "$RUNNER_TEMP/engines/pdflatex/"
@@ -158,8 +157,95 @@ jobs:
           UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
           TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-runtime/TinyTeX
           TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-runtime/package-map.json
-          GITHUB_TOKEN: ${{ github.token }}
         run: uv run --frozen python tests/watch_smoke.py "$UV_TOOL_BIN_DIR/texmini" tests/fixtures/bibliography
+
+  minimal-linux-smoke:
+    runs-on: ubuntu-latest
+    container: ghcr.io/astral-sh/uv:python3.12-bookworm-slim@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install the sole Unix runtime prerequisite
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends perl
+          rm -rf /var/lib/apt/lists/*
+          if command -v curl; then exit 1; fi
+          if command -v wget; then exit 1; fi
+      - name: Install texMini with uv
+        env:
+          UV_TOOL_DIR: /tmp/texmini-tools
+          UV_TOOL_BIN_DIR: /tmp/texmini-bin
+        run: uv tool install .
+      - name: Bootstrap and compile Beamer through the Python downloader
+        env:
+          UV_TOOL_DIR: /tmp/texmini-tools
+          UV_TOOL_BIN_DIR: /tmp/texmini-bin
+          TEXMINI_TINYTEX_ROOT: /tmp/texmini-runtime/TinyTeX
+          TEXMINI_PACKAGE_MAP: /tmp/texmini-runtime/package-map.json
+        run: |
+          /tmp/texmini-bin/texmini install-tinytex
+          cd tests/fixtures/beamer
+          /tmp/texmini-bin/texmini slides.tex
+          test -s slides.pdf
+
+  windows-native-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Configure isolated Windows paths
+        shell: pwsh
+        run: |
+          Add-Content $env:GITHUB_ENV "UV_TOOL_DIR=$env:RUNNER_TEMP\texmini-tools"
+          Add-Content $env:GITHUB_ENV "UV_TOOL_BIN_DIR=$env:RUNNER_TEMP\texmini-bin"
+          Add-Content $env:GITHUB_ENV "TEXMINI_TINYTEX_ROOT=$env:RUNNER_TEMP\texmini path\TinyTeX"
+          Add-Content $env:GITHUB_ENV "TEXMINI_PACKAGE_MAP=$env:RUNNER_TEMP\texmini path\package-map.json"
+      - name: Install the built wheel
+        shell: pwsh
+        run: |
+          uv build --wheel --out-dir "$env:RUNNER_TEMP\dist"
+          uv tool install --force (Get-ChildItem "$env:RUNNER_TEMP\dist\*.whl").FullName
+      - name: Bootstrap and compile in a path containing spaces
+        shell: pwsh
+        run: |
+          $texmini = Join-Path $env:UV_TOOL_BIN_DIR "texmini.exe"
+          & $texmini install-tinytex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $project = Join-Path $env:RUNNER_TEMP "project with spaces"
+          New-Item -ItemType Directory -Force $project | Out-Null
+          Copy-Item tests\fixtures\simple\simple.tex $project
+          Copy-Item tests\fixtures\beamer\slides.tex $project
+          Copy-Item tests\fixtures\bibliography\bibliography.tex $project
+          Copy-Item tests\fixtures\bibliography\refs.bib $project
+          Push-Location $project
+          & $texmini simple.tex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $incremental = & $texmini simple.tex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $incremental | Write-Output
+          if ($incremental -notmatch "simple.pdf is up to date") {
+            throw "Incremental rebuild did not report an up-to-date PDF"
+          }
+          & $texmini slides.tex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $texmini --engine lualatex simple.tex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $texmini --engine xelatex simple.tex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $texmini bibliography.tex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $texmini --clean bibliography.tex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path simple.pdf)) { throw "simple.pdf was not created" }
+          if (-not (Test-Path slides.pdf)) { throw "slides.pdf was not created" }
+          if (-not (Test-Path bibliography.pdf)) { throw "bibliography.pdf was not created" }
+          if (Test-Path bibliography.aux) { throw "--clean retained bibliography.aux" }
+          Pop-Location
+          if (-not (Test-Path "$env:TEXMINI_TINYTEX_ROOT\.texmini-runtime.json")) {
+            throw "Runtime provenance metadata was not created"
+          }
 
   docker:
     strategy:

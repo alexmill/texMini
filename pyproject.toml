@@ -16,6 +16,7 @@ classifiers = [
   "Environment :: Console",
   "Intended Audience :: End Users/Desktop",
   "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Topic :: Text Processing :: Markup :: LaTeX",
@@ -34,7 +35,7 @@ Repository = "https://github.com/alexmill/texMini"
 where = ["src"]
 
 [tool.setuptools.package-data]
-texmini = ["texmini_latexmkrc"]
+texmini = ["runtime_manifest.json", "texmini_latexmkrc"]
 
 [tool.setuptools.dynamic]
 version = { attr = "texmini.__version__" }
