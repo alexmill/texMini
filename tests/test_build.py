@@ -27,7 +27,7 @@ class BuildTest(unittest.TestCase):
         tlmgr.write_text("", encoding="utf-8")
         tlmgr.chmod(0o755)
         if os.name == "nt":
-            runscript = root / "texmf-dist" / "scripts" / "texlive" / "runscript.tlu"
+            runscript = root / "bin" / "windows" / "runscript.tlu"
             perl = root / "tlpkg" / "tlperl" / "bin" / "perl.exe"
             runscript.parent.mkdir(parents=True)
             perl.parent.mkdir(parents=True)

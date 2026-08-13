@@ -65,7 +65,7 @@ class RuntimeTest(unittest.TestCase):
             path.write_text(name, encoding="utf-8")
             path.chmod(0o755)
         if windows:
-            runscript = root / "texmf-dist" / "scripts" / "texlive" / "runscript.tlu"
+            runscript = root / "bin" / "windows" / "runscript.tlu"
             perl = root / "tlpkg" / "tlperl" / "bin" / "perl.exe"
             runscript.parent.mkdir(parents=True)
             perl.parent.mkdir(parents=True)
