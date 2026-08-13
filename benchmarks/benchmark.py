@@ -176,7 +176,10 @@ def directory_size(path: Path, allocated: bool = False) -> int:
         seen_inodes.add(inode)
         stats.append(stat)
     if allocated:
-        return sum(stat.st_blocks * 512 for stat in stats)
+        return sum(
+            getattr(stat, "st_blocks", (stat.st_size + 511) // 512) * 512
+            for stat in stats
+        )
     return sum(stat.st_size for stat in stats)
 
 

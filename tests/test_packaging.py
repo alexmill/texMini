@@ -183,7 +183,8 @@ class PackagingTest(unittest.TestCase):
         )
         smoke_script = ROOT / "tests" / "smoke_docker.sh"
 
-        self.assertTrue(smoke_script.stat().st_mode & 0o111)
+        if os.name != "nt":
+            self.assertTrue(smoke_script.stat().st_mode & 0o111)
         self.assertEqual(ci.count("tests/smoke_docker.sh"), 1)
         self.assertEqual(release.count("tests/smoke_docker.sh"), 1)
 

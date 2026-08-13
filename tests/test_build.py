@@ -101,9 +101,10 @@ class BuildTest(unittest.TestCase):
             self.assertFalse((root / "people.ind").exists())
 
     def test_resolve_build_layout_parses_latexmk_report(self) -> None:
-        report = """Latexmk: Cwd: '/project/docs'
+        project_root = Path(Path.cwd().anchor) / "project"
+        report = f"""Latexmk: Cwd: '{(project_root / "docs").as_posix()}'
 Latexmk: Normalized aux dir, out dir, out2 dir:
-  '/project/aux', '/project/build', '/project/build'
+  '{(project_root / "aux").as_posix()}', '{(project_root / "build").as_posix()}', '{(project_root / "build").as_posix()}'
 Latexmk: Base name of generated files:
   'publication'
 """
@@ -118,9 +119,9 @@ Latexmk: Base name of generated files:
             )
 
         self.assertEqual(layout.jobname, "publication")
-        self.assertEqual(layout.aux_dir, Path("/project/aux"))
-        self.assertEqual(layout.pdf_path, Path("/project/build/publication.pdf"))
-        self.assertEqual(layout.log_path, Path("/project/aux/publication.log"))
+        self.assertEqual(layout.aux_dir, project_root / "aux")
+        self.assertEqual(layout.pdf_path, project_root / "build" / "publication.pdf")
+        self.assertEqual(layout.log_path, project_root / "aux" / "publication.log")
         self.assertIn("-dir-report-only", run.call_args.args[0])
 
     def test_backend_preinstalls_source_requirements(self) -> None:
