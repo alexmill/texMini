@@ -291,7 +291,7 @@ def validate_tinytex_runtime(root: Path, platform_key: str) -> None:
         managed_tool(root, tool)
     if platform_key == "windows-x86_64":
         required_files = (
-            root / "texmf-dist" / "scripts" / "texlive" / "runscript.tlu",
+            root / "bin" / "windows" / "runscript.tlu",
             root / "tlpkg" / "tlperl" / "bin" / "perl.exe",
         )
         for path in required_files:

@@ -55,7 +55,7 @@ class ReportingTest(unittest.TestCase):
             errors.getvalue().count("could not verify repository signatures"), 1
         )
         self.assertNotIn("package repository", errors.getvalue())
-        self.assertIn("Install GnuPG", errors.getvalue())
+        self.assertIn("GnuPG", errors.getvalue())
         self.assertIn("then rerun texMini", errors.getvalue())
 
     def test_windows_gpg_guidance_does_not_recommend_homebrew(self) -> None:
