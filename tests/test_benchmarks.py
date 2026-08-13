@@ -17,9 +17,14 @@ class BenchmarkFixtureTest(unittest.TestCase):
             os.link(source, root / "linked")
 
             self.assertEqual(benchmark.directory_size(root), 8192)
+            source_stat = source.stat()
+            allocated_size = (
+                getattr(source_stat, "st_blocks", (source_stat.st_size + 511) // 512)
+                * 512
+            )
             self.assertEqual(
                 benchmark.directory_size(root, allocated=True),
-                source.stat().st_blocks * 512,
+                allocated_size,
             )
 
     def test_random_package_fixture_is_seeded_and_unique(self) -> None:

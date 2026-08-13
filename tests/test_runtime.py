@@ -188,7 +188,8 @@ class RuntimeTest(unittest.TestCase):
             self.assertEqual(metadata["texmini_version"], __version__)
             self.assertEqual(metadata["tinytex_version"], "2099.01")
             self.assertEqual(metadata["platform"], "test")
-            self.assertTrue((root / "bin" / "test" / "latexmk").is_file())
+            latexmk = "latexmk.exe" if os.name == "nt" else "latexmk"
+            self.assertTrue((root / "bin" / "test" / latexmk).is_file())
 
     def test_failed_validation_does_not_install_partial_runtime(self) -> None:
         archive = self._tinytex_archive({"kpsewhich"})

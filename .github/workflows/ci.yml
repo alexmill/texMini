@@ -225,7 +225,7 @@ jobs:
           $incremental = & $texmini simple.tex
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $incremental | Write-Output
-          if ($incremental -notmatch "simple.pdf is up to date") {
+          if (($incremental -join "`n") -notmatch "simple.pdf is up to date") {
             throw "Incremental rebuild did not report an up-to-date PDF"
           }
           & $texmini slides.tex
