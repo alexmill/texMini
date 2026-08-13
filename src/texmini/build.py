@@ -36,14 +36,13 @@ from .runtime import (
     DIRECT_TOOL_PACKAGES,
     ensure_tinytex_engine,
     executable_on_path_with_env,
-    install_tinytex_archive,
     install_tinytex_packages,
+    install_tinytex_runtime,
     missing_tinytex_source_files,
     resolve_tinytex_packages,
     tinytex_env,
     tinytex_root,
 )
-
 
 AUX_EXTENSIONS = [
     "acn",
@@ -140,9 +139,10 @@ def run_tinytex_compile(
 ) -> subprocess.CompletedProcess[str]:
     env = tinytex_env(root) if env is None else env
     force_args = ["-g"] if force else []
+    latexmk = executable_on_path_with_env("latexmk", env) or "latexmk"
     return run_command(
         [
-            "latexmk",
+            latexmk,
             *ENGINE_ARGS[engine],
             "-cd",
             "-interaction=nonstopmode",
@@ -164,8 +164,9 @@ def resolve_build_layout(
     env: dict[str, str],
     reporter: Reporter,
 ) -> BuildLayout:
+    latexmk = executable_on_path_with_env("latexmk", env) or "latexmk"
     result = run_command(
-        ["latexmk", *ENGINE_ARGS[engine], "-cd", "-dir-report-only", *latexmk_args],
+        [latexmk, *ENGINE_ARGS[engine], "-cd", "-dir-report-only", *latexmk_args],
         reporter=reporter,
         env=env,
         cwd=Path.cwd(),
@@ -240,7 +241,7 @@ def stale_failed_build(result: subprocess.CompletedProcess[str]) -> bool:
 
 def _run_build(request: BuildRequest, reporter: Reporter) -> BuildOutcome:
     root = tinytex_root()
-    install_tinytex_archive(root, reporter)
+    install_tinytex_runtime(root, reporter)
     env = tinytex_env(root)
     ensure_tinytex_engine(root, request.engine, env, reporter)
     layout = resolve_build_layout(

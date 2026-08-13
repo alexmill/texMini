@@ -37,18 +37,19 @@ class PackagingTest(unittest.TestCase):
                 check=True,
             )
 
+            executable = bin_dir / ("texmini.exe" if os.name == "nt" else "texmini")
             version = subprocess.run(
-                [str(bin_dir / "texmini"), "--version"],
+                [str(executable), "--version"],
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "0.5.0")
+            self.assertEqual(version.stdout.strip(), "0.6.0")
 
             help_result = subprocess.run(
-                [str(bin_dir / "texmini"), "--help"],
+                [str(executable), "--help"],
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -76,6 +77,9 @@ class PackagingTest(unittest.TestCase):
             project["urls"]["Repository"], "https://github.com/alexmill/texMini"
         )
         self.assertIn("Operating System :: MacOS", project["classifiers"])
+        self.assertIn(
+            "Operating System :: Microsoft :: Windows", project["classifiers"]
+        )
         self.assertIn("Operating System :: POSIX :: Linux", project["classifiers"])
 
     def test_sdist_contains_benchmarks_and_compile_fixtures(self) -> None:
@@ -112,45 +116,44 @@ class PackagingTest(unittest.TestCase):
         self.assertTrue(
             any(name.endswith("/src/texmini/texmini_latexmkrc") for name in names)
         )
+        self.assertTrue(
+            any(name.endswith("/src/texmini/runtime_manifest.json") for name in names)
+        )
 
-    def test_dockerfile_pins_supported_tinytex_archives(self) -> None:
+    def test_dockerfile_uses_the_packaged_runtime_installer(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
-        self.assertIn("TINYTEX_VERSION=2026.08", dockerfile)
-        self.assertIn(
-            "6bcde65cbbc147d6e492fa105a7210a06792d609358ef74a14a95228e3e36656",
-            dockerfile,
-        )
-        self.assertIn(
-            "7f4a52d8cb85a6d7056a12eb132b989180cd883d408741181a0fe4e8775fb9d4",
-            dockerfile,
-        )
         self.assertIn("python:3.12-slim-bookworm@sha256:", dockerfile)
-        self.assertIn("debian:bookworm-slim@sha256:", dockerfile)
         self.assertIn("ghcr.io/astral-sh/uv:0.11.20@sha256:", dockerfile)
         self.assertIn("uv build --wheel", dockerfile)
-        self.assertIn('archive="TinyTeX-1-${platform}', dockerfile)
-        self.assertIn('test -x "${tex_bin}/latexmk"', dockerfile)
+        self.assertIn("RUN texmini install-tinytex", dockerfile)
+        self.assertNotIn("tinytex-releases", dockerfile)
+        self.assertNotIn("TINYTEX_VERSION", dockerfile)
+        self.assertNotIn("SHA256", dockerfile)
+        self.assertNotIn("tlmgr update --self", dockerfile)
         self.assertNotIn("docker-packages.txt", dockerfile)
         self.assertNotIn("tlmgr install", dockerfile)
         self.assertNotIn("makeindex imakeidx glossaries", dockerfile)
         self.assertNotIn("enumitem microtype", dockerfile)
-        self.assertIn("curl fontconfig", dockerfile)
+        self.assertNotIn("curl", dockerfile)
+        self.assertNotIn("wget", dockerfile)
+        self.assertIn("fontconfig", dockerfile)
         self.assertIn("libncurses6", dockerfile)
         self.assertIn("util-linux", dockerfile)
         self.assertIn("xz-utils", dockerfile)
         self.assertIn("TEXMINI_PACKAGE_MAP=/opt/TinyTeX/", dockerfile)
         self.assertNotIn("TEXMINI_TINYTEX_BUNDLE", dockerfile)
-        self.assertIn("RUN chmod -R a+rwX /opt/TinyTeX", dockerfile)
+        self.assertIn("chmod -R a+rwX /opt/TinyTeX", dockerfile)
         self.assertIn("COPY --chmod=755 docker-entrypoint.sh", dockerfile)
         self.assertIn('ENTRYPOINT ["texmini-entrypoint"]', dockerfile)
         self.assertNotIn("nix", dockerfile.lower())
 
-    def test_docker_build_uses_tinytex_one_without_a_supplement_manifest(self) -> None:
+    def test_docker_build_has_no_supplement_or_provisioning_fork(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
         self.assertFalse((ROOT / "docker-packages.txt").exists())
-        self.assertIn("TinyTeX-1-${platform}", dockerfile)
+        self.assertIn("texmini install-tinytex", dockerfile)
+        self.assertNotIn("tar -x", dockerfile)
         self.assertNotIn("xargs env", dockerfile)
 
     def test_docker_entrypoint_matches_work_directory_ownership(self) -> None:

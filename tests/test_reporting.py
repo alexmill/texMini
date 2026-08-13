@@ -58,6 +58,13 @@ class ReportingTest(unittest.TestCase):
         self.assertIn("Install GnuPG", errors.getvalue())
         self.assertIn("then rerun texMini", errors.getvalue())
 
+    def test_windows_gpg_guidance_does_not_recommend_homebrew(self) -> None:
+        with patch("sys.platform", "win32"):
+            guidance = reporting.gpg_install_guidance()
+
+        self.assertIn("Windows", guidance)
+        self.assertNotIn("brew", guidance)
+
     def test_document_warnings_filters_layout_chatter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "paper.log"

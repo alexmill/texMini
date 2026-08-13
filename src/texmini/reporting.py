@@ -34,11 +34,18 @@ class Reporter:
                 "Warning: TeX Live could not verify repository signatures because GPG is unavailable."
             )
             self.warning(
-                "TeX Live continued without signature verification. Install GnuPG "
-                "(`brew install gnupg` on macOS or your system's gnupg package), "
-                "then rerun texMini."
+                "TeX Live continued without signature verification. "
+                f"{gpg_install_guidance().rstrip('.')}; then rerun texMini."
             )
             self._gpg_warning_printed = True
+
+
+def gpg_install_guidance() -> str:
+    if sys.platform == "darwin":
+        return "Install GnuPG with `brew install gnupg`."
+    if sys.platform == "win32":
+        return "Install GnuPG for Windows."
+    return "Install your operating system's GnuPG package."
 
 
 def run_command(

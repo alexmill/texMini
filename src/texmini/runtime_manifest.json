@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "tinytex_version": "2026.08",
+  "repository": "https://tlnet.yihui.org",
+  "assets": {
+    "darwin": {
+      "filename": "TinyTeX-1-darwin-v2026.08.tar.xz",
+      "sha256": "dd22ffdf1063eff79cadcff45de1f24e8546edf508ab402dc9f87ec2f3367344",
+      "format": "tar.xz"
+    },
+    "linux-x86_64": {
+      "filename": "TinyTeX-1-linux-x86_64-v2026.08.tar.xz",
+      "sha256": "6bcde65cbbc147d6e492fa105a7210a06792d609358ef74a14a95228e3e36656",
+      "format": "tar.xz"
+    },
+    "linux-arm64": {
+      "filename": "TinyTeX-1-linux-arm64-v2026.08.tar.xz",
+      "sha256": "7f4a52d8cb85a6d7056a12eb132b989180cd883d408741181a0fe4e8775fb9d4",
+      "format": "tar.xz"
+    },
+    "linuxmusl-x86_64": {
+      "filename": "TinyTeX-1-linuxmusl-x86_64-v2026.08.tar.xz",
+      "sha256": "a0aaee6b0047318cfd3b930568617eee88290f79306b207f953009002609d439",
+      "format": "tar.xz"
+    },
+    "windows-x86_64": {
+      "filename": "TinyTeX-1-windows-v2026.08.exe",
+      "sha256": "d0abe3db92f7003a716bf9db0fbc103689bc91a42b0729664a0675be16e4f636",
+      "format": "windows-sfx"
+    }
+  }
+}
