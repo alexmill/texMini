@@ -348,6 +348,7 @@ def install_tinytex_runtime(
     url = tinytex_asset_url(manifest, asset)
     root.parent.mkdir(parents=True, exist_ok=True)
     reporter.status(f"Preparing TinyTeX {manifest.tinytex_version} for {platform_key}.")
+    reporter.status("Expect about 300–350 MB of disk use for the managed runtime.")
     reporter.status(f"Downloading {asset.filename}...")
     with tempfile.TemporaryDirectory(
         prefix=".texmini-install-", dir=root.parent

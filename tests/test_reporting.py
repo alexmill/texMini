@@ -56,7 +56,9 @@ class ReportingTest(unittest.TestCase):
         )
         self.assertNotIn("package repository", errors.getvalue())
         self.assertIn("GnuPG", errors.getvalue())
-        self.assertIn("then rerun texMini", errors.getvalue())
+        self.assertIn("This build is continuing", errors.getvalue())
+        self.assertIn("future package installations", errors.getvalue())
+        self.assertNotIn("rerun texMini", errors.getvalue())
 
     def test_windows_gpg_guidance_does_not_recommend_homebrew(self) -> None:
         with patch("sys.platform", "win32"):

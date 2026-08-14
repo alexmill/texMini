@@ -34,8 +34,9 @@ class Reporter:
                 "Warning: TeX Live could not verify repository signatures because GPG is unavailable."
             )
             self.warning(
-                "TeX Live continued without signature verification. "
-                f"{gpg_install_guidance().rstrip('.')}; then rerun texMini."
+                "This build is continuing without signature verification. "
+                f"{gpg_install_guidance().rstrip('.')} so future package "
+                "installations can be verified."
             )
             self._gpg_warning_printed = True
 

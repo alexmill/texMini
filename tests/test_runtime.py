@@ -174,13 +174,16 @@ class RuntimeTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "TinyTeX"
+            status_messages: list[str] = []
             with (
                 patch("texmini.runtime.tinytex_platform_key", return_value="test"),
                 patch("texmini.runtime.check_runtime_prerequisites"),
                 patch("texmini.runtime.load_runtime_manifest", return_value=manifest),
                 patch("texmini.runtime.download", side_effect=provide_asset),
             ):
-                runtime.install_tinytex_runtime(root)
+                runtime.install_tinytex_runtime(
+                    root, SimpleNamespace(status=status_messages.append)
+                )
 
             metadata = json.loads(
                 (root / runtime.RUNTIME_METADATA).read_text(encoding="utf-8")
@@ -190,6 +193,10 @@ class RuntimeTest(unittest.TestCase):
             self.assertEqual(metadata["platform"], "test")
             latexmk = "latexmk.exe" if os.name == "nt" else "latexmk"
             self.assertTrue((root / "bin" / "test" / latexmk).is_file())
+            self.assertIn(
+                "Expect about 300–350 MB of disk use for the managed runtime.",
+                status_messages,
+            )
 
     def test_failed_validation_does_not_install_partial_runtime(self) -> None:
         archive = self._tinytex_archive({"kpsewhich"})
