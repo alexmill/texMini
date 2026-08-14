@@ -1,62 +1,63 @@
 # Deployment Status
 
-Last verified: 2026-08-05
+Last verified: 2026-08-13
 
-texMini `0.5.0` is publicly available from PyPI, GHCR, and GitHub Releases. The release adopts TinyTeX-1 as the shared baseline for new native runtimes and Docker runtime volumes. GitHub Actions published the Python distributions through PyPI Trusted Publishing and published the multi-architecture container with provenance.
+texMini `0.6.0` is publicly available from PyPI, GHCR, and GitHub Releases. The release adds native Windows x86-64 provisioning through the official TinyTeX self-extracting bundle and its bundled Perl, while retaining the pinned TinyTeX-1 baseline on every supported platform.
 
 ## Release
 
-- Release commit: [`fa4920c`](https://github.com/alexmill/texMini/commit/fa4920ccdf15fb166d0e92edcf1c9a2e2d230415)
-- Annotated tag: [`v0.5.0`](https://github.com/alexmill/texMini/tree/v0.5.0)
-- Passing main-branch CI: [run 31054416537](https://github.com/alexmill/texMini/actions/runs/31054416537)
-- Passing release workflow: [run 31054846778](https://github.com/alexmill/texMini/actions/runs/31054846778)
-- PyPI: <https://pypi.org/project/texmini/0.5.0/>
-- GitHub Release: <https://github.com/alexmill/texMini/releases/tag/v0.5.0>
-- GHCR: `ghcr.io/alexmill/texmini:0.5.0`
+- Release commit: [`86667ec`](https://github.com/alexmill/texMini/commit/86667ecfbba85ae4ee4ff9100563abb965caf13e)
+- Annotated tag: [`v0.6.0`](https://github.com/alexmill/texMini/tree/v0.6.0)
+- Passing main-branch CI: [run 31767131789](https://github.com/alexmill/texMini/actions/runs/31767131789)
+- Passing release workflow: [run 31767397353](https://github.com/alexmill/texMini/actions/runs/31767397353)
+- PyPI: <https://pypi.org/project/texmini/0.6.0/>
+- GitHub Release: <https://github.com/alexmill/texMini/releases/tag/v0.6.0>
+- GHCR: `ghcr.io/alexmill/texmini:0.6.0`
 - GHCR rolling tag: `ghcr.io/alexmill/texmini:latest`
 
-The `0.5.0`, `0.5`, `0`, and `latest` GHCR tags resolve to the same public image index:
+The `0.6.0`, `0.6`, `0`, and `latest` GHCR tags resolve to the same public image index:
 
 ```text
-sha256:7bd209eabdb69a884da44e680d32abe0d4bed745fd3e991ecd359a4fb7d8cf62
+sha256:236d60a476677eb6121a6a7c3f6e4acf32b97d2e9cbd7ab15b47d0f9a2b13a75
 ```
 
 The image index contains these platform manifests:
 
 | Platform | Manifest digest |
 | --- | --- |
-| `linux/amd64` | `sha256:db198e0e3a7206e97ec808e551e1e03156c81e2c179b85c9a5ac400eea8acd5b` |
-| `linux/arm64` | `sha256:f36b92bbf06a13789e46350a58a923afc6e0368550aabd09faa2c4e18e3e7bf5` |
+| `linux/amd64` | `sha256:597eaca41e27f391483439dffad9882ec208a502533f06fc12580df4beb9ad6b` |
+| `linux/arm64` | `sha256:b7b183446857f4b92aed227d9b4a765b8fd78489dd4a940cfeaf430c042849bc` |
 
-`gh attestation verify oci://ghcr.io/alexmill/texmini:0.5.0 --repo alexmill/texMini` completed successfully.
+`gh attestation verify oci://ghcr.io/alexmill/texmini:0.6.0 --repo alexmill/texMini` completed successfully.
 
 ## Package Integrity
 
-The artifacts attached to the GitHub Release match the files served by PyPI:
+The artifacts attached to the GitHub Release match the SHA-256 digests reported by PyPI:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `texmini-0.5.0-py3-none-any.whl` | `0f925ee31519bbb743a823f83b3d36cdff76aa96e4b2681745574aaa217ef51a` |
-| `texmini-0.5.0.tar.gz` | `f4b7ea9f1e0761908a879353bc6da32a6fdaa163eeb09d0c2f0d333c8ee242ac` |
+| `texmini-0.6.0-py3-none-any.whl` | `5ef6039a2436f49b457dbccfdcf2eb931ea767da2382420415f6336da530f2bd` |
+| `texmini-0.6.0.tar.gz` | `ff2aedc2c1b77bbdb98cbd2bfaf219b3e8111f9f7e14527158b10ea43e6c97b2` |
 
-PyPI publication uses GitHub Actions OIDC with repository `alexmill/texMini`, workflow `release.yml`, and environment `pypi`. The protected environment required and received approval from the `alexmill` account.
+PyPI publication uses GitHub Actions OIDC with repository `alexmill/texMini`, workflow `release.yml`, and environment `pypi`. The protected environment received approval from the `alexmill` account after both release smoke architectures passed.
 
 ## Verification Results
 
-- All 95 unit and packaging tests passed locally and in CI.
-- The wheel and source distribution passed Twine validation, and the release workflow installed and tested the wheel.
-- Main-branch CI passed on macOS and Ubuntu, including fresh native TinyTeX-1 runtimes, amd64 and arm64 Docker builds, adaptive package installation, ownership behavior, package validation, and workflow validation.
+- All 104 unit and packaging tests passed locally and on Ubuntu, macOS, and Windows in CI.
+- The wheel and source distribution passed Twine validation, and a clean installation from public PyPI reported texMini `0.6.0`.
+- Native Windows CI installed the wheel, provisioned TinyTeX through the Windows self-extracting bundle without host Perl, and compiled pdfLaTeX, LuaLaTeX, XeLaTeX, Beamer, and Biber fixtures from paths containing spaces.
+- Native macOS and Linux smoke tests provisioned fresh managed runtimes and exercised adaptive package installation, all supported engines, bibliographies, indices, glossaries, nomenclature, minted, custom layouts, and continuous rebuilding.
 - The release workflow ran the full Docker fixture suite on amd64 and representative pdfLaTeX and Biber builds on arm64.
-- A clean `texmini==0.5.0` installation from public PyPI provisioned TinyTeX-1 and compiled the simple fixture.
-- A clean Docker runtime volume compiled the simple fixture with the published `0.5.0` image. A second container reused the volume and reported that the PDF was up to date.
 - PyPI and the GitHub Release report identical wheel and source archive hashes.
 - The versioned, major-minor, major, and rolling GHCR tags report the same image index digest.
-- The published image index contains amd64 and arm64 manifests.
-- GitHub provenance verification succeeded for the versioned GHCR image.
+- The published image index contains amd64 and arm64 manifests, and GitHub provenance verification succeeded for the versioned image.
 
-## TinyTeX-1 Observations
+## User-Facing Release Changes
 
-The native benchmark used the August 2026 TinyTeX-1 archive for macOS arm64. The archive contained 67,051,368 bytes. The installed runtime used 342,211,981 logical bytes and 360,333,312 allocated bytes after the benchmark builds. All cold benchmark builds completed, and texMini installed additional TeX Live packages as each fixture required them. These measurements describe one run; they are not release gates.
+- Windows x86-64 uses the official TinyTeX Windows bundle, its bundled Perl, and platform-native executable discovery.
+- The GPG advisory now makes clear that the current build continues and that installing GnuPG protects future package installations.
+- First-run output and the README disclose the managed runtime's approximate 300–350 MB initial disk use.
+- Absolute input paths now produce absolute PDF and diagnostic paths in status output.
 
 ## Release Configuration
 
