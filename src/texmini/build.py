@@ -197,6 +197,7 @@ def resolve_build_layout(
         out_dir = compile_directory / out_dir
     jobname = job_match.group(1)
     source = Path(tex_file)
+    input_path_is_absolute = source.is_absolute()
     if not source.is_absolute():
         source = Path.cwd() / source
     return BuildLayout(
@@ -206,6 +207,7 @@ def resolve_build_layout(
         out_dir.resolve(),
         out_dir.resolve() / f"{jobname}.pdf",
         aux_dir.resolve() / f"{jobname}.log",
+        input_path_is_absolute,
     )
 
 

@@ -10,9 +10,9 @@ Install [uv](https://docs.astral.sh/uv/), open a terminal in your LaTeX project,
 uvx texmini paper.tex
 ```
 
-That is the standard workflow on macOS, Linux, and Windows x86-64. Windows needs no other system dependency. macOS and Linux also need Perl, which is usually already installed and is checked before texMini downloads anything.
+That is the standard workflow on macOS, Linux, and Windows x86-64. Windows needs no other required system dependency. macOS and Linux also need Perl, which is usually already installed and is checked before texMini downloads anything. Optional GnuPG support enables TeX Live repository signature verification on every platform.
 
-On the first build, texMini downloads and verifies a private TinyTeX runtime, installs the packages required by `paper.tex`, and writes `paper.pdf` beside the source. Later builds reuse the runtime and incremental build state.
+On the first build, texMini downloads and verifies a private TinyTeX runtime, installs the packages required by `paper.tex`, and writes `paper.pdf` beside the source. Expect roughly 300–350 MB of disk use for the initial managed runtime; it grows as documents require more packages. Later builds reuse the runtime and incremental build state.
 
 Install the command if you use it regularly:
 
@@ -73,7 +73,7 @@ If a directory contains exactly one top-level `.tex` document, the filename is o
 texmini
 ```
 
-TeX Live reports a warning when GnuPG is unavailable because package repository signatures cannot be verified. TeX Live may continue the installation. Install GnuPG through Homebrew on macOS, your operating system package manager on Linux, or a Windows GnuPG distribution, then rerun texMini to restore signature verification.
+TeX Live reports an advisory warning when GnuPG is unavailable because package repository signatures cannot be verified. The current build continues without verification. Install GnuPG through Homebrew on macOS, your operating system package manager on Linux, or a Windows GnuPG distribution so future package installations can be verified; the current build does not need to be rerun.
 
 ## Engines and options
 

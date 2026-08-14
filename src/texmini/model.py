@@ -53,6 +53,7 @@ class BuildLayout:
     out_dir: Path
     pdf_path: Path
     log_path: Path
+    input_path_is_absolute: bool = False
 
     @classmethod
     def beside_source(cls, tex_file: str) -> "BuildLayout":
@@ -65,10 +66,12 @@ class BuildLayout:
             base.parent,
             base.with_suffix(".pdf"),
             base.with_suffix(".log"),
+            source.is_absolute(),
         )
 
-    @staticmethod
-    def _display_relative(path: Path) -> str:
+    def _display_path(self, path: Path) -> str:
+        if self.input_path_is_absolute:
+            return os.fspath(path.resolve())
         try:
             return os.fspath(path.resolve().relative_to(Path.cwd().resolve()))
         except ValueError:
@@ -76,11 +79,11 @@ class BuildLayout:
 
     @property
     def display_pdf(self) -> str:
-        return self._display_relative(self.pdf_path)
+        return self._display_path(self.pdf_path)
 
     @property
     def display_log(self) -> str:
-        return self._display_relative(self.log_path)
+        return self._display_path(self.log_path)
 
 
 @dataclass(frozen=True)

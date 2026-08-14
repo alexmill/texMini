@@ -124,6 +124,27 @@ Latexmk: Base name of generated files:
         self.assertEqual(layout.log_path, project_root / "aux" / "publication.log")
         self.assertIn("-dir-report-only", run.call_args.args[0])
 
+    def test_absolute_input_displays_absolute_output_path(self) -> None:
+        project_root = Path(Path.cwd().anchor) / "project"
+        source = project_root / "docs" / "paper.tex"
+        report = f"""Latexmk: Cwd: '{source.parent.as_posix()}'
+Latexmk: Normalized aux dir, out dir, out2 dir:
+  '{source.parent.as_posix()}', '{source.parent.as_posix()}', '{source.parent.as_posix()}'
+Latexmk: Base name of generated files:
+  'paper'
+"""
+        completed = SimpleNamespace(returncode=0, stdout=report)
+        with patch("texmini.build.run_command", return_value=completed):
+            layout = build.resolve_build_layout(
+                "pdflatex",
+                [os.fspath(source)],
+                os.fspath(source),
+                {},
+                reporting.Reporter(),
+            )
+
+        self.assertEqual(layout.display_pdf, os.fspath(source.with_suffix(".pdf")))
+
     def test_backend_preinstalls_source_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = self._managed_root(directory)
