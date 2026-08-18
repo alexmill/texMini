@@ -312,4 +312,9 @@ uv build --sdist --wheel
 uvx --from twine==6.2.0 twine check dist/*
 ```
 
-TinyTeX bundle benchmark methodology and raw results are in [`benchmarks`](benchmarks).
+The [before/after performance report](docs/performance-report.md) separates
+texMini-owned overhead from TeX Live and network time. Reproducible methodology,
+thresholds, and machine-readable results are in [`benchmarks`](benchmarks); the
+[architecture decision](docs/architecture/0001-optimize-python-orchestrator.md)
+explains why an optimized universal Python wheel beat Rust, Go, rewrite, and
+hybrid alternatives for this workload.

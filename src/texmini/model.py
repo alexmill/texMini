@@ -111,6 +111,7 @@ class BuildOutcome:
     failure_kind: FailureKind | None = None
     missing_files: tuple[str, ...] = ()
     unmapped_files: tuple[str, ...] = ()
+    project_files: tuple[str, ...] | None = None
     primary_error: PrimaryError | None = None
     layout: BuildLayout | None = None
 

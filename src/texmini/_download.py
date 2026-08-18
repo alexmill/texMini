@@ -14,6 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from texmini import __version__
 
+from ._trace import span
 from .model import TexMiniError
 
 CHUNK_SIZE = 1024 * 1024
@@ -29,34 +30,59 @@ def _safe_url(url: str) -> str:
     return urlunsplit((parsed.scheme, host, parsed.path, parsed.query, ""))
 
 
+def _validate_download_url(url: str) -> None:
+    parsed = urlsplit(url)
+    if parsed.scheme.lower() != "https" or not parsed.hostname:
+        raise TexMiniError(
+            f"Error: texMini refuses a non-HTTPS download URL: {_safe_url(url)}"
+        )
+    if parsed.username is not None or parsed.password is not None:
+        raise TexMiniError(
+            "Error: texMini refuses credentials in a download URL: "
+            f"{_safe_url(url)}"
+        )
+
+
 def _download_once(
     url: str,
     destination: Path,
     expected_sha256: str | None,
     display_name: str,
 ) -> None:
-    request = urllib.request.Request(
-        url, headers={"User-Agent": f"texmini/{__version__}"}
-    )
-    checksum = hashlib.sha256()
-    with (
-        urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response,
-        destination.open("wb") as output,
-    ):
-        while chunk := response.read(CHUNK_SIZE):
-            output.write(chunk)
-            checksum.update(chunk)
-    if expected_sha256 is not None and checksum.hexdigest() != expected_sha256:
-        raise TexMiniError(f"Error: SHA-256 integrity check failed for {display_name}.")
+    parsed = urlsplit(url)
+    category = "runtime_archive" if display_name.startswith("TinyTeX") else "texlive"
+    with span(
+        "download_and_sha256",
+        category=category,
+        host=parsed.hostname or "",
+        asset=display_name,
+        checksum_required=expected_sha256 is not None,
+    ) as trace:
+        request = urllib.request.Request(
+            url, headers={"User-Agent": f"texmini/{__version__}"}
+        )
+        checksum = hashlib.sha256()
+        downloaded = 0
+        with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response:
+            _validate_download_url(response.geturl())
+            with destination.open("wb") as output:
+                while chunk := response.read(CHUNK_SIZE):
+                    output.write(chunk)
+                    checksum.update(chunk)
+                    downloaded += len(chunk)
+        trace["response_body_bytes"] = downloaded
+        if expected_sha256 is not None and checksum.hexdigest() != expected_sha256:
+            trace["checksum_verified"] = False
+            raise TexMiniError(
+                f"Error: SHA-256 integrity check failed for {display_name}."
+            )
+        trace["checksum_verified"] = expected_sha256 is not None
 
 
 def download(
     url: str, destination: Path | str, expected_sha256: str | None = None
 ) -> None:
-    if not url.lower().startswith("https://"):
-        raise TexMiniError(
-            f"Error: texMini refuses a non-HTTPS download URL: {_safe_url(url)}"
-        )
+    _validate_download_url(url)
 
     output_path = None if os.fspath(destination) == "-" else Path(destination)
     display_name = (
@@ -121,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2:
         print(
-            "Usage: python -m texmini._download DESTINATION URL",
+            "Usage: uv run python -m texmini._download DESTINATION URL",
             file=sys.stderr,
         )
         return 2

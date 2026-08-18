@@ -84,7 +84,7 @@ def main() -> int:
                 ),
                 encoding="utf-8",
             )
-            wait_for("Build failed: Undefined control sequence")
+            wait_for("Build failed: TeX reported: Undefined control sequence")
             time.sleep(1)
 
             recovered_source = valid_source.replace(

@@ -1,31 +1,10 @@
+from __future__ import annotations
+
 import os
 import sys
 from time import monotonic
 
 from texmini import __version__
-
-from .build import (
-    report_build_result,
-    run_tinytex_backend,
-)
-from .model import (
-    ENGINE_ARGS,
-    CliConfig,
-    TexMiniError,
-)
-from .project import (
-    check_bibliography,
-    clear_source_cache,
-    detect_tex_file,
-    resolve_engine,
-)
-from .reporting import (
-    Reporter,
-)
-from .runtime import (
-    install_tinytex,
-)
-from .watch import watch_document
 
 
 def print_help() -> None:
@@ -49,6 +28,8 @@ arguments are passed through to latexmk."""
 
 
 def parse_args(argv: list[str]) -> CliConfig:
+    from .model import ENGINE_ARGS, CliConfig, TexMiniError
+
     engine = os.environ.get("TEXMINI_ENGINE")
     clean = os.environ.get("TEXMINI_CLEAN", "false").lower() == "true"
     verbose = False
@@ -150,9 +131,20 @@ def parse_args(argv: list[str]) -> CliConfig:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def run_tinytex_backend(*args: object, **kwargs: object):
+    from .build import run_tinytex_backend as run
+
+    return run(*args, **kwargs)
+
+
+def install_tinytex(verbose: bool = False) -> int:
+    from .runtime import install_tinytex as install
+
+    return install(verbose)
+
+
+def _main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    clear_source_cache()
     if "--help" in argv or "-h" in argv:
         print_help()
         return 0
@@ -165,6 +157,19 @@ def main(argv: list[str] | None = None) -> int:
             print("Error: install-tinytex only accepts --verbose.", file=sys.stderr)
             return 1
         return install_tinytex("--verbose" in argv)
+
+    from .build import report_build_result
+    from .model import TexMiniError
+    from .project import (
+        check_bibliography,
+        clear_source_cache,
+        detect_tex_file,
+        resolve_engine,
+    )
+    from .reporting import Reporter
+    from .watch import watch_document
+
+    clear_source_cache()
 
     started_at = monotonic()
     reporter = Reporter("--verbose" in argv)
@@ -199,6 +204,17 @@ def main(argv: list[str] | None = None) -> int:
         config.auto_install,
         reporter,
     )
+
+
+def main(argv: list[str] | None = None) -> int:
+    if not os.environ.get("TEXMINI_TRACE"):
+        return _main(argv)
+    from ._trace import span
+
+    with span("cli") as trace:
+        result = _main(argv)
+        trace["returncode"] = result
+        return result
 
 
 if __name__ == "__main__":

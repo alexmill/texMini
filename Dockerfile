@@ -8,7 +8,7 @@ FROM ${PYTHON_IMAGE} AS python-build
 
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /src
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml PYPI.md LICENSE ./
 COPY src ./src
 RUN uv build --wheel --out-dir /dist \
   && uv venv /opt/texmini \

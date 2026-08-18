@@ -2,15 +2,58 @@ from __future__ import annotations
 
 import io
 import os
+import random
 import tempfile
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
+from unittest.mock import patch
 
 from texmini import model, project, reporting, runtime
 
 
 class ProjectTest(unittest.TestCase):
+    def test_fast_comment_stripper_matches_character_scan_reference(self) -> None:
+        def reference(source: str) -> str:
+            uncommented: list[str] = []
+            for line in source.splitlines(keepends=True):
+                for index, character in enumerate(line):
+                    if character != "%":
+                        continue
+                    preceding_backslashes = 0
+                    cursor = index - 1
+                    while cursor >= 0 and line[cursor] == "\\":
+                        preceding_backslashes += 1
+                        cursor -= 1
+                    if preceding_backslashes % 2:
+                        continue
+                    ending = (
+                        "\r\n"
+                        if line.endswith("\r\n")
+                        else "\n"
+                        if line.endswith("\n")
+                        else ""
+                    )
+                    line = f"{line[:index]}{ending}"
+                    break
+                uncommented.append(line)
+            return "".join(uncommented)
+
+        rng = random.Random(20260816)
+        examples = [
+            "plain text",
+            "escaped \\% text % comment\n",
+            "even \\\\% comment\r\nnext",
+            "odd \\\\\\% literal\r\nlast % no newline",
+        ]
+        examples.extend(
+            "".join(rng.choice("abc XYZ%\\\n\r") for _ in range(rng.randrange(300)))
+            for _ in range(500)
+        )
+
+        for source in examples:
+            self.assertEqual(project.strip_tex_comments(source), reference(source))
+
     def test_detect_tex_file_auto_detects_single_source(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             previous = Path.cwd()
@@ -112,6 +155,27 @@ class ProjectTest(unittest.TestCase):
         )
         self.assertEqual(packages, ["biber"])
 
+    def test_source_requirements_preserve_project_subdirectory_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text(
+                "\\documentclass{classes/publisher}\n"
+                "\\usepackage{styles/local}\n"
+                "\\bibliographystyle{bibliography/custom}\n",
+                encoding="utf-8",
+            )
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertEqual(
+            requirements.files,
+            (
+                "classes/publisher.cls",
+                "styles/local.sty",
+                "bibliography/custom.bst",
+            ),
+        )
+
     def test_source_requirements_ignore_commented_directives(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "paper.tex"
@@ -154,6 +218,119 @@ class ProjectTest(unittest.TestCase):
         self.assertEqual(
             {path.name for path in requirements.sources}, {"main.tex", "chapter.tex"}
         )
+
+    def test_source_requirements_follow_unique_nested_project_style(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "paper.tex"
+            source.write_text("\\usepackage{local}\n", encoding="utf-8")
+            style = root / "vendor" / "local.sty"
+            style.parent.mkdir()
+            style.write_text("\\RequirePackage{transitive}\n", encoding="utf-8")
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertIn("local.sty", requirements.files)
+        self.assertIn("transitive.sty", requirements.files)
+        self.assertIn(style.resolve(), requirements.sources)
+
+    def test_source_requirements_follow_local_biblatex_style_pair(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "paper.tex"
+            source.write_text("\\usepackage{local}\n", encoding="utf-8")
+            style = root / "vendor" / "local.sty"
+            style.parent.mkdir()
+            style.write_text(
+                "\\RequirePackage[style=custom]{biblatex}\n", encoding="utf-8"
+            )
+            bbx = root / "vendor" / "custom.bbx"
+            cbx = root / "vendor" / "custom.cbx"
+            bbx.write_text("\\RequirePackage{from-bbx}\n", encoding="utf-8")
+            cbx.write_text("\\RequirePackage{from-cbx}\n", encoding="utf-8")
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertIn("custom.bbx", requirements.files)
+        self.assertIn("custom.cbx", requirements.files)
+        self.assertIn("from-bbx.sty", requirements.files)
+        self.assertIn("from-cbx.sty", requirements.files)
+        self.assertIn("biber", requirements.tools)
+        self.assertIn(style.resolve(), requirements.sources)
+        self.assertIn(bbx.resolve(), requirements.sources)
+        self.assertIn(cbx.resolve(), requirements.sources)
+
+    def test_source_requirements_distinguish_biblatex_style_options(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text(
+                "\\usepackage[bibstyle=references,citestyle=citations]{biblatex}\n",
+                encoding="utf-8",
+            )
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertIn("references.bbx", requirements.files)
+        self.assertIn("citations.cbx", requirements.files)
+        self.assertNotIn("references.cbx", requirements.files)
+        self.assertNotIn("citations.bbx", requirements.files)
+
+    def test_source_requirements_do_not_guess_ambiguous_biblatex_style(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "paper.tex"
+            source.write_text(
+                "\\usepackage[bibstyle=custom]{biblatex}\n", encoding="utf-8"
+            )
+            first = root / "one" / "custom.bbx"
+            second = root / "two" / "custom.bbx"
+            first.parent.mkdir()
+            second.parent.mkdir()
+            first.write_text("\\RequirePackage{first-only}\n", encoding="utf-8")
+            second.write_text("\\RequirePackage{second-only}\n", encoding="utf-8")
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertNotIn("first-only.sty", requirements.files)
+        self.assertNotIn("second-only.sty", requirements.files)
+        self.assertIn(first.resolve(), requirements.sources)
+        self.assertIn(second.resolve(), requirements.sources)
+
+    def test_source_requirements_do_not_guess_between_duplicate_nested_styles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "paper.tex"
+            source.write_text("\\usepackage{local}\n", encoding="utf-8")
+            first = root / "one" / "local.sty"
+            second = root / "two" / "local.sty"
+            first.parent.mkdir()
+            second.parent.mkdir()
+            first.write_text("\\RequirePackage{first-only}\n", encoding="utf-8")
+            second.write_text("\\RequirePackage{second-only}\n", encoding="utf-8")
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertEqual(requirements.files, ("local.sty",))
+        self.assertNotIn("first-only.sty", requirements.files)
+        self.assertNotIn("second-only.sty", requirements.files)
+        self.assertIn(first.resolve(), requirements.sources)
+        self.assertIn(second.resolve(), requirements.sources)
+
+    def test_source_requirements_record_unique_nested_bibliography_style(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "paper.tex"
+            source.write_text(
+                "\\bibliographystyle{custom}\n", encoding="utf-8"
+            )
+            style = root / "bibliography" / "custom.bst"
+            style.parent.mkdir()
+            style.write_text("ENTRY {} {} {}\n", encoding="utf-8")
+
+            requirements = project.analyze_source_requirements(str(source))
+
+        self.assertIn("custom.bst", requirements.files)
+        self.assertIn(style.resolve(), requirements.sources)
 
     def test_source_requirements_detect_eps_converter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -210,6 +387,20 @@ class ProjectTest(unittest.TestCase):
 
         self.assertEqual(errors.getvalue(), "")
 
+    def test_unreferenced_bibliography_warning_does_not_suggest_source_edit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "paper.tex"
+            source.write_text("\\usepackage{biblatex}\n", encoding="utf-8")
+            bibliography = Path(directory) / "references.bib"
+            bibliography.write_text("@book{x}\n", encoding="utf-8")
+            errors = io.StringIO()
+            with redirect_stderr(errors):
+                project.check_bibliography(str(source), [])
+
+        self.assertIn("is not referenced", errors.getvalue())
+        self.assertNotIn("addbibresource", errors.getvalue())
+        self.assertNotIn("may need", errors.getvalue())
+
     def test_log_requirements_extract_missing_file_font_and_biber(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "paper.log"
@@ -251,6 +442,15 @@ class ProjectTest(unittest.TestCase):
 
         self.assertEqual(files, [])
         self.assertEqual(packages, [])
+
+    def test_log_requirements_tolerate_disappearing_or_unreadable_log(self) -> None:
+        log = Path("paper.log")
+        for error in (FileNotFoundError("gone"), PermissionError("unreadable")):
+            with (
+                self.subTest(error=type(error).__name__),
+                patch("pathlib.Path.read_text", side_effect=error),
+            ):
+                self.assertEqual(project.tex_log_requirements(log), ([], []))
 
 
 if __name__ == "__main__":

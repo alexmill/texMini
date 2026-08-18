@@ -6,9 +6,8 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+from importlib.metadata import metadata
 from pathlib import Path
-
-import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -62,25 +61,31 @@ class PackagingTest(unittest.TestCase):
     def test_pyproject_declares_one_dynamic_versioned_entry_point(self) -> None:
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
+        self.assertIn('requires = ["setuptools==84.0.0"]', pyproject)
         self.assertIn('dynamic = ["version"]', pyproject)
+        self.assertIn('"pygments==2.20.0"', pyproject)
+        self.assertIn('"psutil==7.2.2"', pyproject)
         self.assertIn('[project.scripts]\ntexmini = "texmini.cli:main"', pyproject)
         self.assertIn('version = { attr = "texmini.__version__" }', pyproject)
         self.assertNotIn("script-files", pyproject)
 
     def test_pyproject_exposes_public_package_metadata(self) -> None:
-        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
-            "project"
-        ]
+        package_metadata = metadata("texmini")
+        project_urls = dict(
+            entry.split(", ", 1)
+            for entry in package_metadata.get_all("Project-URL", failobj=[])
+        )
+        classifiers = package_metadata.get_all("Classifier", failobj=[])
 
-        self.assertEqual(project["name"], "texmini")
+        self.assertEqual(package_metadata["Name"], "texmini")
         self.assertEqual(
-            project["urls"]["Repository"], "https://github.com/alexmill/texMini"
+            project_urls["Repository"], "https://github.com/alexmill/texMini"
         )
-        self.assertIn("Operating System :: MacOS", project["classifiers"])
+        self.assertIn("Operating System :: MacOS", classifiers)
         self.assertIn(
-            "Operating System :: Microsoft :: Windows", project["classifiers"]
+            "Operating System :: Microsoft :: Windows", classifiers
         )
-        self.assertIn("Operating System :: POSIX :: Linux", project["classifiers"])
+        self.assertIn("Operating System :: POSIX :: Linux", classifiers)
 
     def test_sdist_contains_benchmarks_and_compile_fixtures(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -98,6 +103,15 @@ class PackagingTest(unittest.TestCase):
 
         self.assertTrue(
             any(name.endswith("/benchmarks/benchmark.py") for name in names)
+        )
+        self.assertTrue(any(name.endswith("/PYPI.md") for name in names))
+        self.assertTrue(
+            any(
+                name.endswith(
+                    "/docs/architecture/0001-optimize-python-orchestrator.md"
+                )
+                for name in names
+            )
         )
         self.assertTrue(
             any(name.endswith("/tests/fixtures/simple/simple.tex") for name in names)
@@ -176,6 +190,35 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("platforms: linux/amd64,linux/arm64", workflow)
         self.assertIn("push-to-registry: true", workflow)
 
+    def test_release_validates_the_exact_tag_on_native_desktop_platforms(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
+        native_job = workflow.split("  native-release-validation:\n", 1)[1].split(
+            "\n  docker-smoke:\n", 1
+        )[0]
+
+        self.assertIn("needs: package", native_job)
+        self.assertIn("fail-fast: false", native_job)
+        self.assertIn(
+            "os: [macos-latest, macos-15-intel, windows-latest]", native_job
+        )
+        self.assertIn("ref: ${{ github.sha }}", native_job)
+        self.assertIn("version: ${{ env.UV_VERSION }}", native_job)
+        self.assertIn(
+            "uv run --frozen python -m unittest discover -s tests -v", native_job
+        )
+        self.assertIn("uv build --wheel --out-dir dist", native_job)
+        self.assertIn("-py3-none-any.whl", native_job)
+        self.assertIn("uvx --from twine==6.2.0 twine check", native_job)
+        self.assertIn("uvx --from . texmini --version", native_job)
+        self.assertEqual(
+            workflow.count(
+                "needs: [package, native-release-validation, docker-smoke]"
+            ),
+            2,
+        )
+
     def test_ci_and_release_share_the_docker_smoke_matrix(self) -> None:
         ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         release = (ROOT / ".github" / "workflows" / "release.yml").read_text(
@@ -188,6 +231,27 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual(ci.count("tests/smoke_docker.sh"), 1)
         self.assertEqual(release.count("tests/smoke_docker.sh"), 1)
 
+    def test_ci_pins_uv_and_names_native_platform_coverage_honestly(self) -> None:
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        release = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('UV_VERSION: "0.11.20"', ci)
+        self.assertIn('UV_VERSION: "0.11.20"', release)
+        self.assertIn("macos-15-intel", ci)
+        self.assertIn("ubuntu-24.04-arm", ci)
+        self.assertIn("linuxmusl-x86_64", ci)
+        self.assertIn("windows-x86_64", ci)
+        self.assertIn("uvx --from . texmini --version", ci)
+        self.assertIn(".github/workflows/*.yml", ci)
+        self.assertIn("ghcr.io/astral-sh/uv:0.11.20-python3.12-trixie-slim@sha256:", ci)
+        self.assertIn("ghcr.io/astral-sh/uv:0.11.20-python3.12-alpine@sha256:", ci)
+        self.assertNotIn("windows-arm64", ci.lower())
+        self.assertNotIn("windows-11-arm", ci.lower())
+
     def test_docker_context_contains_only_required_build_inputs(self) -> None:
         dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
 
@@ -198,7 +262,7 @@ class PackagingTest(unittest.TestCase):
                 "!Dockerfile",
                 "!docker-entrypoint.sh",
                 "!LICENSE",
-                "!README.md",
+                "!PYPI.md",
                 "!pyproject.toml",
                 "!src/",
                 "!src/**",

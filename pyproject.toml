@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "texmini"
 dynamic = ["version"]
 description = "Approachable LaTeX compiler with automatic TeX Live package installation."
-readme = "README.md"
+readme = "PYPI.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Alex Mill" }]
@@ -21,7 +21,9 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Text Processing :: Markup :: LaTeX",
 ]
-dependencies = ["Pygments>=2.17"]
+dependencies = [
+    "pygments==2.20.0",
+]
 
 [project.scripts]
 texmini = "texmini.cli:main"
@@ -39,3 +41,8 @@ texmini = ["runtime_manifest.json", "texmini_latexmkrc"]
 
 [tool.setuptools.dynamic]
 version = { attr = "texmini.__version__" }
+
+[dependency-groups]
+benchmark = [
+    "psutil==7.2.2",
+]

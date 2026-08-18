@@ -1,16 +1,19 @@
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
-from typing import TYPE_CHECKING
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Iterable, Mapping
 
 from texmini import __version__
 
-from ._download import download
+from ._trace import span
 from .model import TexMiniError
 from .project import analyze_source_requirements, project_source_files
 from .reporting import Reporter, run_command
@@ -30,6 +33,24 @@ DIRECT_TOOL_PACKAGES = {
     "repstopdf": "epstopdf",
     "xindy": "xindy",
 }
+TLMGR_SEARCH_CHUNK_FILES = 32
+TLMGR_SEARCH_PATTERN_CHARACTERS = 4000
+LAYOUT_HOOK_TINYTEX_VERSIONS = frozenset({"2026.08"})
+RUNTIME_ASSET_FORMATS = {
+    "darwin": "tar.xz",
+    "linux-x86_64": "tar.xz",
+    "linux-arm64": "tar.xz",
+    "linuxmusl-x86_64": "tar.xz",
+    "windows-x86_64": "windows-sfx",
+}
+
+
+def download(
+    url: str, destination: Path | str, expected_sha256: str | None = None
+) -> None:
+    from ._download import download as perform_download
+
+    perform_download(url, destination, expected_sha256)
 
 
 @dataclass(frozen=True)
@@ -44,33 +65,116 @@ class RuntimeManifest:
     schema_version: int
     tinytex_version: str
     repository: str
-    assets: dict[str, RuntimeAsset]
+    assets: Mapping[str, RuntimeAsset]
 
 
-def load_runtime_manifest() -> RuntimeManifest:
+def _parse_runtime_manifest(data: object) -> RuntimeManifest:
+    from urllib.parse import urlsplit
+
+    def invalid(detail: str) -> TexMiniError:
+        return TexMiniError(f"Error: Invalid TinyTeX runtime manifest: {detail}.")
+
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        raise invalid("unsupported schema")
+    tinytex_version = data.get("tinytex_version")
+    if not isinstance(tinytex_version, str) or re.fullmatch(
+        r"[0-9]{4}\.[0-9]{2}", tinytex_version
+    ) is None:
+        raise invalid("tinytex_version must use YYYY.MM")
+    repository = data.get("repository")
+    if not isinstance(repository, str):
+        raise invalid("repository must be an HTTPS URL")
+    parsed_repository = urlsplit(repository)
+    if (
+        parsed_repository.scheme.lower() != "https"
+        or not parsed_repository.netloc
+        or parsed_repository.username is not None
+        or parsed_repository.password is not None
+    ):
+        raise invalid("repository must be an HTTPS URL without credentials")
+    raw_assets = data.get("assets")
+    if not isinstance(raw_assets, dict) or set(raw_assets) != set(
+        RUNTIME_ASSET_FORMATS
+    ):
+        raise invalid("asset keys do not exactly match supported platforms")
+
+    expected_filenames = {
+        "darwin": f"TinyTeX-1-darwin-v{tinytex_version}.tar.xz",
+        "linux-x86_64": f"TinyTeX-1-linux-x86_64-v{tinytex_version}.tar.xz",
+        "linux-arm64": f"TinyTeX-1-linux-arm64-v{tinytex_version}.tar.xz",
+        "linuxmusl-x86_64": (
+            f"TinyTeX-1-linuxmusl-x86_64-v{tinytex_version}.tar.xz"
+        ),
+        "windows-x86_64": f"TinyTeX-1-windows-v{tinytex_version}.exe",
+    }
+    assets: dict[str, RuntimeAsset] = {}
+    for key, expected_format in RUNTIME_ASSET_FORMATS.items():
+        raw_asset = raw_assets[key]
+        if not isinstance(raw_asset, dict):
+            raise invalid(f"{key} asset must be an object")
+        if set(raw_asset) != {"filename", "sha256", "format"}:
+            raise invalid(f"{key} asset fields are incomplete or unknown")
+        filename = raw_asset["filename"]
+        digest = raw_asset["sha256"]
+        asset_format = raw_asset["format"]
+        if filename != expected_filenames[key]:
+            raise invalid(f"{key} filename does not match the pinned version")
+        if not isinstance(digest, str) or re.fullmatch(
+            r"[0-9a-f]{64}", digest
+        ) is None:
+            raise invalid(f"{key} sha256 must be 64 lowercase hexadecimal digits")
+        if asset_format != expected_format:
+            raise invalid(f"{key} format must be {expected_format}")
+        assets[key] = RuntimeAsset(filename, digest, asset_format)
+
+    return RuntimeManifest(
+        schema_version=1,
+        tinytex_version=tinytex_version,
+        repository=repository,
+        assets=MappingProxyType(assets),
+    )
+
+
+@lru_cache(maxsize=1)
+def _load_runtime_manifest() -> RuntimeManifest:
     import json
 
     manifest_path = files("texmini").joinpath("runtime_manifest.json")
-    with manifest_path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
-    if data.get("schema_version") != 1:
-        raise TexMiniError("Error: Unsupported TinyTeX runtime manifest schema.")
-    repository = str(data["repository"])
-    if not repository.lower().startswith("https://"):
-        raise TexMiniError("Error: The TinyTeX repository must use HTTPS.")
-    assets = {
-        key: RuntimeAsset(
-            filename=str(value["filename"]),
-            sha256=str(value["sha256"]),
-            format=str(value["format"]),
-        )
-        for key, value in data["assets"].items()
-    }
-    return RuntimeManifest(
-        schema_version=1,
-        tinytex_version=str(data["tinytex_version"]),
-        repository=repository,
-        assets=assets,
+    try:
+        with manifest_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError) as error:
+        raise TexMiniError(
+            f"Error: Could not read the TinyTeX runtime manifest: {error}"
+        ) from error
+    return _parse_runtime_manifest(data)
+
+
+def load_runtime_manifest() -> RuntimeManifest:
+    with span("manifest_load"):
+        return _load_runtime_manifest()
+
+
+def runtime_supports_layout_hook(root: Path) -> bool:
+    if os.environ.get("TEXMINI_DISABLE_LAYOUT_HOOK"):
+        return False
+    try:
+        import json
+
+        with (root / RUNTIME_METADATA).open("r", encoding="utf-8") as handle:
+            metadata = json.load(handle)
+        manifest = load_runtime_manifest()
+        platform_key = str(metadata["platform"])
+        asset = manifest.assets[platform_key]
+    except (KeyError, OSError, TypeError, ValueError):
+        return False
+    return (
+        metadata.get("schema_version") == 1
+        and metadata.get("tinytex_version") in LAYOUT_HOOK_TINYTEX_VERSIONS
+        and metadata.get("tinytex_version") == manifest.tinytex_version
+        and metadata.get("asset") == asset.filename
+        and metadata.get("sha256") == asset.sha256
+        and metadata.get("repository") == manifest.repository
     )
 
 
@@ -144,22 +248,27 @@ def display_path(path: Path) -> str:
 
 
 def tinytex_bin_dir(root: Path, executable: str = "latexmk") -> Path:
-    bin_root = root / "bin"
-    for path in sorted(bin_root.iterdir() if bin_root.exists() else []):
-        for candidate in _platform_tool_names(executable):
-            if shutil.which(candidate, path=os.fspath(path)):
-                return path
+    if resolved := managed_executable(root, executable):
+        return Path(resolved).parent
     raise TexMiniError(
         f"Error: TinyTeX does not provide {executable} at {root}. "
         f"Delete {root} and run texmini install-tinytex to recreate it."
     )
 
 
+def managed_executable(root: Path, executable: str) -> str | None:
+    bin_root = root / "bin"
+    for path in sorted(bin_root.iterdir() if bin_root.exists() else []):
+        for candidate in _platform_tool_names(executable):
+            if resolved := shutil.which(candidate, path=os.fspath(path)):
+                return resolved
+    return None
+
+
 def managed_tool(root: Path, executable: str) -> str:
-    bin_dir = tinytex_bin_dir(root, executable)
-    for candidate in _platform_tool_names(executable):
-        if resolved := shutil.which(candidate, path=os.fspath(bin_dir)):
-            return resolved
+    if resolved := managed_executable(root, executable):
+        return resolved
+    tinytex_bin_dir(root, executable)
     raise AssertionError("tinytex_bin_dir returned without resolving its tool")
 
 
@@ -179,13 +288,17 @@ def tinytex_platform_key() -> str:
         return "darwin"
     if sys.platform.startswith("linux"):
         machine = platform.machine().lower()
+        libc = platform.libc_ver()[0].strip().lower()
+        if libc not in {"glibc", "musl"}:
+            raise _unsupported_platform(
+                f"unrecognized Linux C library {libc or 'unknown'}"
+            )
         if machine in {"aarch64", "arm64"}:
-            if platform.libc_ver()[0].lower() == "musl":
-                raise _unsupported_platform()
+            if libc != "glibc":
+                raise _unsupported_platform("Linux musl on ARM64")
             return "linux-arm64"
         if machine not in {"amd64", "x86_64"}:
             raise _unsupported_platform()
-        libc = platform.libc_ver()[0].lower()
         return "linuxmusl-x86_64" if libc == "musl" else "linux-x86_64"
     if sys.platform == "win32":
         if platform.machine().lower() in {"amd64", "x86_64"}:
@@ -194,9 +307,10 @@ def tinytex_platform_key() -> str:
     raise _unsupported_platform()
 
 
-def _unsupported_platform() -> TexMiniError:
+def _unsupported_platform(reason: str | None = None) -> TexMiniError:
+    detail = f" ({reason})" if reason else ""
     return TexMiniError(
-        "Error: This platform is unsupported. Supported platforms are macOS "
+        f"Error: This platform is unsupported{detail}. Supported platforms are macOS "
         "(Apple Silicon and x86-64), Linux glibc (ARM64 and x86-64), Linux "
         "musl (x86-64), and Windows (x86-64)."
     )
@@ -246,22 +360,30 @@ def validate_tinytex_archive_member(member: "tarfile.TarInfo") -> None:
 def _extract_tinytex_archive(archive_path: Path, destination: Path) -> Path:
     import tarfile
 
-    with tarfile.open(archive_path, mode="r:xz") as archive:
-        members = archive.getmembers()
-        for member in members:
-            validate_tinytex_archive_member(member)
-        archive.extractall(destination, members=members)
-    extracted_root = next(
-        (
-            candidate
-            for root_name in ("TinyTeX", ".TinyTeX")
-            if (candidate := destination / root_name).is_dir()
-        ),
-        None,
-    )
-    if extracted_root is None:
-        raise TexMiniError("Error: TinyTeX archive did not contain a TinyTeX runtime.")
-    return extracted_root
+    with span("runtime_extract", format="tar.xz") as trace:
+        with tarfile.open(archive_path, mode="r:xz") as archive:
+            member_count = 0
+            for member in archive:
+                validate_tinytex_archive_member(member)
+                if sys.version_info >= (3, 12):
+                    archive.extract(member, destination, filter="fully_trusted")
+                else:
+                    archive.extract(member, destination)
+                member_count += 1
+            trace["member_count"] = member_count
+        extracted_root = next(
+            (
+                candidate
+                for root_name in ("TinyTeX", ".TinyTeX")
+                if (candidate := destination / root_name).is_dir()
+            ),
+            None,
+        )
+        if extracted_root is None:
+            raise TexMiniError(
+                "Error: TinyTeX archive did not contain a TinyTeX runtime."
+            )
+        return extracted_root
 
 
 def _extract_tinytex_windows_sfx(
@@ -286,20 +408,21 @@ def _extract_tinytex_windows_sfx(
 
 
 def validate_tinytex_runtime(root: Path, platform_key: str) -> None:
-    required_tools = ("latexmk", "tlmgr", "kpsewhich", "pdflatex")
-    for tool in required_tools:
-        managed_tool(root, tool)
-    if platform_key == "windows-x86_64":
-        required_files = (
-            root / "bin" / "windows" / "runscript.tlu",
-            root / "tlpkg" / "tlperl" / "bin" / "perl.exe",
-        )
-        for path in required_files:
-            if not path.is_file():
-                raise TexMiniError(
-                    f"Error: TinyTeX does not provide {path.name} at {root}. "
-                    f"Delete {root} and run texmini install-tinytex to recreate it."
-                )
+    with span("runtime_validation", platform=platform_key):
+        required_tools = ("latexmk", "tlmgr", "kpsewhich", "pdflatex", "lualatex")
+        for tool in required_tools:
+            managed_tool(root, tool)
+        if platform_key == "windows-x86_64":
+            required_files = (
+                root / "bin" / "windows" / "runscript.tlu",
+                root / "tlpkg" / "tlperl" / "bin" / "perl.exe",
+            )
+            for path in required_files:
+                if not path.is_file():
+                    raise TexMiniError(
+                        f"Error: TinyTeX does not provide {path.name} at {root}. "
+                        f"Delete {root} and run texmini install-tinytex to recreate it."
+                    )
 
 
 def _write_runtime_metadata(
@@ -333,7 +456,8 @@ def install_tinytex_runtime(
 
     reporter = reporter or Reporter()
     platform_key = tinytex_platform_key()
-    check_runtime_prerequisites(platform_key)
+    with span("runtime_prerequisites", platform=platform_key):
+        check_runtime_prerequisites(platform_key)
     if root.exists():
         validate_tinytex_runtime(root, platform_key)
         if announce_existing or reporter.verbose:
@@ -406,7 +530,9 @@ def missing_tinytex_source_files(
     tex_file: str,
     env: dict[str, str] | None = None,
     source_files: list[str] | None = None,
+    source_paths: Iterable[Path] | None = None,
     reporter: Reporter | None = None,
+    project_scan_complete: bool = False,
 ) -> list[str]:
     env = tinytex_env(root) if env is None else env
     source_files = (
@@ -421,14 +547,57 @@ def missing_tinytex_source_files(
         source_directory.relative_to(project_root)
     except ValueError:
         project_root = source_directory
-    source_directories = {path.parent for path in project_source_files(tex_file)}
-    local_files = set()
+    source_paths = (
+        project_source_files(tex_file) if source_paths is None else list(source_paths)
+    )
+    source_directories = {path.parent for path in source_paths}
+    local_files = {
+        file_name for file_name in source_files if is_project_source_reference(file_name)
+    }
     for file_name in source_files:
-        if any((directory / file_name).is_file() for directory in source_directories):
+        if file_name in local_files:
+            continue
+        normalized = file_name.replace("\\", "/").lstrip("/")
+        matching_sources: list[Path] = []
+        for path in source_paths:
+            if path.name != normalized.rsplit("/", 1)[-1]:
+                continue
+            if "/" not in normalized:
+                matching_sources.append(path)
+                continue
+            try:
+                relative = path.resolve().relative_to(project_root).as_posix()
+            except ValueError:
+                continue
+            if relative == normalized or relative.endswith(f"/{normalized}"):
+                matching_sources.append(path)
+        if matching_sources:
             local_files.add(file_name)
             continue
-        if next(project_root.rglob(file_name), None) is not None:
+        if any((directory / file_name).is_file() for directory in source_directories):
             local_files.add(file_name)
+    candidates = [file_name for file_name in source_files if file_name not in local_files]
+    if candidates and not project_scan_complete:
+        requested_by_basename: dict[str, list[tuple[str, str]]] = {}
+        for file_name in candidates:
+            normalized = file_name.replace("\\", "/").lstrip("/")
+            requested_by_basename.setdefault(normalized.rsplit("/", 1)[-1], []).append(
+                (file_name, normalized)
+            )
+        with span("local_file_discovery", required_file_count=len(candidates)) as trace:
+            scanned_files = 0
+            for directory, _, file_names in os.walk(project_root):
+                root_directory = Path(directory)
+                for name in file_names:
+                    scanned_files += 1
+                    requested = requested_by_basename.get(name)
+                    if not requested:
+                        continue
+                    relative = (root_directory / name).relative_to(project_root).as_posix()
+                    for file_name, normalized in requested:
+                        if relative == normalized or relative.endswith(f"/{normalized}"):
+                            local_files.add(file_name)
+            trace["scanned_file_count"] = scanned_files
     search_files = [
         file_name for file_name in source_files if file_name not in local_files
     ]
@@ -450,6 +619,19 @@ def missing_tinytex_source_files(
     return [file_name for file_name in search_files if file_name not in found_files]
 
 
+def is_explicit_local_reference(file_name: str) -> bool:
+    normalized = file_name.replace("\\", "/")
+    return (
+        normalized.startswith(("./", "../", "/"))
+        or bool(re.match(r"^[A-Za-z]:/", normalized))
+    )
+
+
+def is_project_source_reference(file_name: str) -> bool:
+    normalized = file_name.replace("\\", "/")
+    return is_explicit_local_reference(file_name) or "/" in normalized
+
+
 def load_package_map(path: Path) -> dict[str, str]:
     import json
 
@@ -469,11 +651,13 @@ def save_package_map(path: Path, package_map: dict[str, str]) -> None:
         handle.write("\n")
 
 
-def package_from_tlmgr_search(output: str) -> str | None:
+def tlmgr_search_candidates(output: str) -> list[tuple[str, str]]:
+    candidates: list[tuple[str, str]] = []
     pending_package: str | None = None
     for line in output.splitlines():
-        if pending_package and "texmf-dist/" in line:
-            return pending_package
+        if pending_package and line[:1].isspace() and "texmf-dist/" in line:
+            candidates.append((pending_package, line.strip()))
+            continue
         package_name, separator, rest = line.partition(":")
         if (
             not separator
@@ -482,11 +666,61 @@ def package_from_tlmgr_search(output: str) -> str | None:
         ):
             continue
         if "texmf-dist/" in rest:
-            return package_name
+            candidates.append((package_name, rest.strip()))
+            pending_package = None
+            continue
         if not rest.strip():
             pending_package = package_name
             continue
-    return None
+        pending_package = None
+    return candidates
+
+
+def package_from_tlmgr_search(output: str) -> str | None:
+    packages = {package for package, _ in tlmgr_search_candidates(output)}
+    return next(iter(packages)) if len(packages) == 1 else None
+
+
+def _tlmgr_search_chunks(file_names: list[str]) -> list[list[str]]:
+    chunks: list[list[str]] = []
+    current: list[str] = []
+    current_length = 0
+    for file_name in file_names:
+        escaped_length = len(re.escape(file_name.replace("\\", "/"))) + 1
+        if current and (
+            len(current) >= TLMGR_SEARCH_CHUNK_FILES
+            or current_length + escaped_length > TLMGR_SEARCH_PATTERN_CHARACTERS
+        ):
+            chunks.append(current)
+            current = []
+            current_length = 0
+        current.append(file_name)
+        current_length += escaped_length
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _tlmgr_search_pattern(file_names: list[str]) -> str:
+    escaped = [re.escape(name.replace("\\", "/").lstrip("/")) for name in file_names]
+    return f"/(?:{'|'.join(escaped)})$"
+
+
+def _packages_for_searched_files(
+    file_names: list[str], output: str
+) -> dict[str, str]:
+    candidates = tlmgr_search_candidates(output)
+    resolved: dict[str, str] = {}
+    for file_name in file_names:
+        normalized = file_name.replace("\\", "/").lstrip("/")
+        packages = {
+            package
+            for package, path in candidates
+            if path.replace("\\", "/").endswith(f"/{normalized}")
+        }
+        if len(packages) == 1:
+            resolved[file_name] = next(iter(packages))
+    return resolved
 
 
 def common_texlive_package_for_file(file_name: str) -> str | None:
@@ -514,8 +748,11 @@ def resolve_tinytex_packages(
     package_map = load_package_map(cache_path)
     resolved: dict[str, str] = {}
     updated = False
+    uncached: list[str] = []
 
     for missing_file in dict.fromkeys(missing_files):
+        if is_explicit_local_reference(missing_file):
+            continue
         cached_package = package_map.get(missing_file)
         if cached_package:
             resolved[missing_file] = cached_package
@@ -526,15 +763,18 @@ def resolve_tinytex_packages(
             resolved[missing_file] = built_in_package
             updated = True
             continue
+        uncached.append(missing_file)
+
+    for chunk in _tlmgr_search_chunks(uncached):
         result = run_command(
             [
-                executable_on_path_with_env("tlmgr", env) or "tlmgr",
+                managed_tool(root, "tlmgr"),
                 "--repository",
                 load_runtime_manifest().repository,
                 "search",
                 "--global",
                 "--file",
-                f"/{missing_file}",
+                _tlmgr_search_pattern(chunk),
             ],
             reporter=reporter,
             env=env,
@@ -544,8 +784,8 @@ def resolve_tinytex_packages(
             check=False,
         )
         _report_tlmgr_failure(result, reporter)
-        package = package_from_tlmgr_search(result.stdout)
-        if package:
+        searched = _packages_for_searched_files(chunk, result.stdout)
+        for missing_file, package in searched.items():
             package_map[missing_file] = package
             resolved[missing_file] = package
             updated = True
@@ -564,7 +804,7 @@ def install_tinytex_packages(
     env = tinytex_env(root, "tlmgr") if env is None else _tlmgr_env(env)
     result = run_command(
         [
-            executable_on_path_with_env("tlmgr", env) or "tlmgr",
+            managed_tool(root, "tlmgr"),
             "--repository",
             load_runtime_manifest().repository,
             "install",
@@ -601,10 +841,19 @@ def _tlmgr_env(env: dict[str, str]) -> dict[str, str]:
 def ensure_tinytex_engine(
     root: Path, engine: str, env: dict[str, str], reporter: Reporter
 ) -> None:
-    package = TINYTEX_ENGINE_PACKAGES.get(engine)
-    if package is None or executable_on_path_with_env(engine, env):
+    if managed_executable(root, engine):
         return
+    package = TINYTEX_ENGINE_PACKAGES.get(engine)
+    if package is None:
+        raise TexMiniError(
+            f"Error: TinyTeX does not provide {engine} at {root}. "
+            f"Delete {root} and run texmini install-tinytex to recreate it."
+        )
     reporter.status(f"Installing the {engine} engine...")
     result = install_tinytex_packages(root, [package], env, reporter)
     if result.returncode != 0:
         raise TexMiniError(f"Error: TinyTeX could not install the {engine} engine.")
+    if managed_executable(root, engine) is None:
+        raise TexMiniError(
+            f"Error: TinyTeX installed {package}, but did not provide {engine}."
+        )
