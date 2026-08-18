@@ -1,0 +1,3580 @@
+{
+  "schema_version": 3,
+  "timestamp_utc": "20260816T051607Z",
+  "candidate_id": "baseline-1cb7a537-cold-final-harness",
+  "texmini_version": "0.6.0",
+  "harness_version": "0.6.0",
+  "target_root": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-baseline-1cb7a53",
+  "retained_workspace": null,
+  "git": {
+    "commit": "1cb7a53798fbc39f9cb224005203db48aeae5461",
+    "dirty": false,
+    "status": [],
+    "working_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tree_content_sha256": "2ce58b16061b56af6cf1b5dd39701c413715542c898b0aedaa617c9804e36e53",
+    "tree_content_file_count": 62,
+    "tree_content_excludes": [
+      "benchmarks/results/",
+      "docs/performance-report.md"
+    ],
+    "tree_content_exclusion_reason": "Machine results and their derived human report are outputs, not candidate inputs.",
+    "ending_tree_content_sha256": "2ce58b16061b56af6cf1b5dd39701c413715542c898b0aedaa617c9804e36e53",
+    "stable_during_run": true
+  },
+  "harness_git": {
+    "commit": "1cb7a53798fbc39f9cb224005203db48aeae5461",
+    "dirty": true,
+    "status": [
+      "M .dockerignore",
+      " M .github/workflows/ci.yml",
+      " M .github/workflows/release.yml",
+      " M Dockerfile",
+      " M MANIFEST.in",
+      " M README.md",
+      " M benchmarks/README.md",
+      " M benchmarks/benchmark.py",
+      " M pyproject.toml",
+      " M src/texmini/_download.py",
+      " M src/texmini/build.py",
+      " M src/texmini/cli.py",
+      " M src/texmini/model.py",
+      " M src/texmini/project.py",
+      " M src/texmini/reporting.py",
+      " M src/texmini/runtime.py",
+      " M src/texmini/watch.py",
+      " M tests/fixtures/engine-directives/lualatex.tex",
+      " M tests/fixtures/engine-directives/xelatex.tex",
+      " M tests/test_benchmarks.py",
+      " M tests/test_build.py",
+      " M tests/test_cli.py",
+      " M tests/test_download.py",
+      " M tests/test_packaging.py",
+      " M tests/test_project.py",
+      " M tests/test_reporting.py",
+      " M tests/test_runtime.py",
+      " M tests/test_watch.py",
+      " M tests/watch_smoke.py",
+      " M uv.lock",
+      "?? PYPI.md",
+      "?? benchmarks/command_worker.py",
+      "?? benchmarks/compare.py",
+      "?? benchmarks/results/20260816-python-baseline-full-macos-arm64.json",
+      "?? benchmarks/results/20260816-python-baseline-full-macos-arm64.raw.jsonl",
+      "?? benchmarks/results/20260816-python-baseline-full-v2-macos-arm64.20260816T042051Z.85092.raw.jsonl",
+      "?? benchmarks/results/20260816-python-baseline-full-v2-macos-arm64.20260816T045928Z.37206.raw.jsonl",
+      "?? benchmarks/results/20260816-python-baseline-full-v2-macos-arm64.json",
+      "?? benchmarks/results/20260816-python-baseline-macos-arm64.json",
+      "?? benchmarks/results/20260816-python-baseline-macos-arm64.raw.jsonl",
+      "?? benchmarks/results/20260816-python-before-after-macos-arm64.json",
+      "?? benchmarks/results/20260816-python-final-cold-macos-arm64.json",
+      "?? benchmarks/results/20260816-python-final-cold-macos-arm64.raw.jsonl",
+      "?? benchmarks/results/20260816-python-final-full-macos-arm64.20260816T050824Z.52919.raw.jsonl",
+      "?? benchmarks/results/20260816-python-final-full-macos-arm64.json",
+      "?? benchmarks/thresholds.json",
+      "?? benchmarks/watch_worker.py",
+      "?? docs/architecture/",
+      "?? src/texmini/_trace.py",
+      "?? tests/test_recovery_contracts.py"
+    ],
+    "working_diff_sha256": "e66cad44e6c6375ea79bbb6fcde8197e7a0b657cff38a2f39d3ab1e0c550cc7a",
+    "tree_content_sha256": "65f0cd516c2c64fcdf5b5bcb905201d369d1559e6c30c7b08e9ec3bc6dc1feb4",
+    "tree_content_file_count": 70,
+    "tree_content_excludes": [
+      "benchmarks/results/",
+      "docs/performance-report.md"
+    ],
+    "tree_content_exclusion_reason": "Machine results and their derived human report are outputs, not candidate inputs.",
+    "ending_tree_content_sha256": "65f0cd516c2c64fcdf5b5bcb905201d369d1559e6c30c7b08e9ec3bc6dc1feb4",
+    "stable_during_run": true
+  },
+  "host": {
+    "platform": "macOS-15.6.1-arm64-arm-64bit",
+    "system": "Darwin",
+    "release": "24.6.0",
+    "machine": "arm64",
+    "processor": "arm",
+    "cpu": "Apple M2 Ultra",
+    "logical_cpu_count": 24,
+    "memory_bytes": 137438953472,
+    "filesystem": "/",
+    "filesystem_type": "apfs",
+    "filesystem_mount": "/",
+    "python": "3.12.12",
+    "python_executable": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+    "uv": "uv 0.9.17 (2b5d65e61 2025-12-09)",
+    "dependency_versions": {
+      "psutil": "7.2.2",
+      "Pygments": "2.20.0"
+    },
+    "timezone": [
+      "PST",
+      "PDT"
+    ]
+  },
+  "runtime_manifest": {
+    "schema_version": 1,
+    "tinytex_version": "2026.08",
+    "repository": "https://tlnet.yihui.org",
+    "platform_key": "darwin",
+    "asset": "TinyTeX-1-darwin-v2026.08.tar.xz",
+    "asset_sha256": "dd22ffdf1063eff79cadcff45de1f24e8546edf508ab402dc9f87ec2f3367344",
+    "manifest_sha256": "48779c4af05fb4f70891ead6d599c826e16c8f15c1f3b9937bff5294f40b08dc",
+    "bundle": "TinyTeX-1"
+  },
+  "measurement_policy": {
+    "os_page_cache": "uncontrolled",
+    "network": "uncontrolled; network-dependent samples are observational",
+    "worker": "fresh one-shot process per authoritative trial",
+    "wall_clock": "time.perf_counter_ns in worker",
+    "resources": "resource.RUSAGE_CHILDREN on POSIX; unavailable otherwise",
+    "filesystem_operations": "trace counters only; no portable syscall total",
+    "instrumented_samples_excluded_from_summaries": true
+  },
+  "configuration": {
+    "argv": [
+      "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/benchmarks/benchmark.py",
+      "--suite",
+      "core",
+      "--candidate-id",
+      "baseline-1cb7a537-cold-final-harness",
+      "--target-root",
+      "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-baseline-1cb7a53",
+      "--repeats",
+      "3",
+      "--startup-repeats",
+      "5",
+      "--package-repeats",
+      "1",
+      "--watch-idle-seconds",
+      "2",
+      "--skip-packaging",
+      "--skip-package-recovery",
+      "--output",
+      "benchmarks/results/20260816-python-baseline-cold-macos-arm64.json"
+    ],
+    "suite": "core",
+    "repeats": 3,
+    "startup_repeats": 5,
+    "package_repeats": 1,
+    "watch_repeats": 3,
+    "watch_idle_seconds": 2.0,
+    "skip_packaging": true,
+    "skip_package_recovery": true,
+    "keep_workspace": false,
+    "runtime_template": null
+  },
+  "base_runtime_origin": {
+    "state": "created_by_first_build",
+    "sample_semantic_success": true
+  },
+  "watch": {
+    "schema_version": 2,
+    "valid_samples": 3,
+    "returncodes": [
+      130,
+      130,
+      130
+    ],
+    "startup_to_ready_ns": 190251209,
+    "idle": {
+      "wall_time_ns": 2012723917,
+      "tree_cpu_time_ns": 13278292,
+      "cpu_fraction_one_core": 0.006597175046139225,
+      "peak_tree_rss_bytes": 23412736,
+      "sample_interval_seconds": 0.005
+    },
+    "change_to_detection_ns": 393680708,
+    "detection_to_complete_ns": 161100500,
+    "change_to_complete_ns": 555805125,
+    "dispersion": {
+      "startup_to_ready_ns": {
+        "median": 190251209,
+        "mad": 333626,
+        "min": 189917583,
+        "max": 190706708
+      },
+      "idle_wall_time_ns": {
+        "median": 2012723917,
+        "mad": 1996958,
+        "min": 2003182916,
+        "max": 2014720875
+      },
+      "idle_tree_cpu_time_ns": {
+        "median": 13278292,
+        "mad": 111128,
+        "min": 13167164,
+        "max": 14390127
+      },
+      "idle_cpu_fraction_one_core": {
+        "median": 0.006597175046139225,
+        "mad": 6.169702365633242e-05,
+        "min": 0.006535478022482892,
+        "max": 0.007183631052891827
+      },
+      "idle_peak_tree_rss_bytes": {
+        "median": 23412736,
+        "mad": 81920,
+        "min": 23183360,
+        "max": 23494656
+      },
+      "change_to_detection_ns": {
+        "median": 393680708,
+        "mad": 3626541,
+        "min": 390054167,
+        "max": 403088667
+      },
+      "detection_to_complete_ns": {
+        "median": 161100500,
+        "mad": 1023917,
+        "min": 159447000,
+        "max": 162124417
+      },
+      "change_to_complete_ns": {
+        "median": 555805125,
+        "mad": 6303958,
+        "min": 549501167,
+        "max": 564189167
+      }
+    },
+    "trace_summary": {
+      "events": 0
+    },
+    "semantic_success": true,
+    "notes": "Medians exclude the separate attribution-only trace. Each trial starts from an independently prepared fully provisioned no-op project.",
+    "samples": [
+      {
+        "schema_version": 1,
+        "returncode": 130,
+        "startup_to_ready_ns": 190706708,
+        "idle": {
+          "wall_time_ns": 2012723917,
+          "tree_cpu_time_ns": 13278292,
+          "cpu_fraction_one_core": 0.006597175046139225,
+          "peak_tree_rss_bytes": 23412736,
+          "sample_interval_seconds": 0.005
+        },
+        "change_to_detection_ns": 393680708,
+        "detection_to_complete_ns": 162124417,
+        "change_to_complete_ns": 555805125,
+        "edit_marker": "texMini benchmark visible watch edit",
+        "pdf_change_evidence": {
+          "path": "simple.pdf",
+          "expected_before_sha256": "d9d6a9f6b8627b0e48177a7e285bc3994c36272a0a87274cc333bb08524cf1ee",
+          "observed_before_sha256": "d9d6a9f6b8627b0e48177a7e285bc3994c36272a0a87274cc333bb08524cf1ee",
+          "after_sha256": "c01b9e1a0ac82da2a1c27f15823e0692fb3e4460e01e017b64ec24b3e3e2ee99",
+          "before_matches_request": true,
+          "changed": true
+        },
+        "log": null,
+        "iteration": 1,
+        "instrumented": false,
+        "expected_returncode": 130,
+        "semantic_assertions": {
+          "handled_ctrl_c_returncode": true,
+          "pdf_changed_from_requested_noop_state": true
+        },
+        "semantic_success": true,
+        "notes": "Fully provisioned no-op startup followed by one visible in-document source edit; the exact expected PDF must change content."
+      },
+      {
+        "schema_version": 1,
+        "returncode": 130,
+        "startup_to_ready_ns": 189917583,
+        "idle": {
+          "wall_time_ns": 2003182916,
+          "tree_cpu_time_ns": 14390127,
+          "cpu_fraction_one_core": 0.007183631052891827,
+          "peak_tree_rss_bytes": 23494656,
+          "sample_interval_seconds": 0.005
+        },
+        "change_to_detection_ns": 403088667,
+        "detection_to_complete_ns": 161100500,
+        "change_to_complete_ns": 564189167,
+        "edit_marker": "texMini benchmark visible watch edit",
+        "pdf_change_evidence": {
+          "path": "simple.pdf",
+          "expected_before_sha256": "decc78597946d57d414051e06b582eaac5f253d383e64a8cdf766a7a6cded1cf",
+          "observed_before_sha256": "decc78597946d57d414051e06b582eaac5f253d383e64a8cdf766a7a6cded1cf",
+          "after_sha256": "39a41df0677f61f2a3d87be02a8d9e56e2eb8c8c7d152a779bf1fde924385b25",
+          "before_matches_request": true,
+          "changed": true
+        },
+        "log": null,
+        "iteration": 2,
+        "instrumented": false,
+        "expected_returncode": 130,
+        "semantic_assertions": {
+          "handled_ctrl_c_returncode": true,
+          "pdf_changed_from_requested_noop_state": true
+        },
+        "semantic_success": true,
+        "notes": "Fully provisioned no-op startup followed by one visible in-document source edit; the exact expected PDF must change content."
+      },
+      {
+        "schema_version": 1,
+        "returncode": 130,
+        "startup_to_ready_ns": 190251209,
+        "idle": {
+          "wall_time_ns": 2014720875,
+          "tree_cpu_time_ns": 13167164,
+          "cpu_fraction_one_core": 0.006535478022482892,
+          "peak_tree_rss_bytes": 23183360,
+          "sample_interval_seconds": 0.005
+        },
+        "change_to_detection_ns": 390054167,
+        "detection_to_complete_ns": 159447000,
+        "change_to_complete_ns": 549501167,
+        "edit_marker": "texMini benchmark visible watch edit",
+        "pdf_change_evidence": {
+          "path": "simple.pdf",
+          "expected_before_sha256": "754a7a038ffb07f368003a3747000f7fbd628620a3a989723a216e999a015660",
+          "observed_before_sha256": "754a7a038ffb07f368003a3747000f7fbd628620a3a989723a216e999a015660",
+          "after_sha256": "938558adb0e24c75ef59b10b1fea0f9e245bca7c5a3f2b7241bbae5e9868999d",
+          "before_matches_request": true,
+          "changed": true
+        },
+        "log": null,
+        "iteration": 3,
+        "instrumented": false,
+        "expected_returncode": 130,
+        "semantic_assertions": {
+          "handled_ctrl_c_returncode": true,
+          "pdf_changed_from_requested_noop_state": true
+        },
+        "semantic_success": true,
+        "notes": "Fully provisioned no-op startup followed by one visible in-document source edit; the exact expected PDF must change content."
+      }
+    ]
+  },
+  "footprints": {
+    "base_runtime": {
+      "logical_bytes": 228441963,
+      "allocated_bytes": 244244480,
+      "allocated_backend": "st_blocks",
+      "regular_files": 6403,
+      "content_identity": {
+        "schema_version": 1,
+        "sha256": "3990f58609bbbcb560911dc09d7aabee17fc66bb4e0e0c7020fa979a8bb5183b",
+        "paths": 7116,
+        "unique_regular_files": 6403
+      },
+      "package_inventory": {
+        "schema_version": 1,
+        "sha256": "0eeb312cb3694ac13f8ebba9a35541348e3809c88e737baafe9ff804333d94cb",
+        "package_count": 123,
+        "source": "tlpkg/texlive.tlpdb name+revision records",
+        "packages": [
+          {
+            "name": "00texlive.config",
+            "revision": null
+          },
+          {
+            "name": "00texlive.installation",
+            "revision": null
+          },
+          {
+            "name": "amscls",
+            "revision": "77682"
+          },
+          {
+            "name": "amsfonts",
+            "revision": "77682"
+          },
+          {
+            "name": "amsmath",
+            "revision": "79234"
+          },
+          {
+            "name": "atbegshi",
+            "revision": "79461"
+          },
+          {
+            "name": "atveryend",
+            "revision": "79461"
+          },
+          {
+            "name": "auxhook",
+            "revision": "79461"
+          },
+          {
+            "name": "babel",
+            "revision": "79370"
+          },
+          {
+            "name": "bibtex",
+            "revision": "77830"
+          },
+          {
+            "name": "bibtex.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "bigintcalc",
+            "revision": "79461"
+          },
+          {
+            "name": "bitset",
+            "revision": "79461"
+          },
+          {
+            "name": "bookmark",
+            "revision": "79461"
+          },
+          {
+            "name": "booktabs",
+            "revision": "77682"
+          },
+          {
+            "name": "cm",
+            "revision": "57963"
+          },
+          {
+            "name": "dehyph",
+            "revision": "48599"
+          },
+          {
+            "name": "dvipdfmx",
+            "revision": "78409"
+          },
+          {
+            "name": "dvipdfmx.universal-darwin",
+            "revision": "78429"
+          },
+          {
+            "name": "dvips",
+            "revision": "77830"
+          },
+          {
+            "name": "dvips.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "ec",
+            "revision": "25033"
+          },
+          {
+            "name": "epstopdf",
+            "revision": "71782"
+          },
+          {
+            "name": "epstopdf-pkg",
+            "revision": "79461"
+          },
+          {
+            "name": "epstopdf.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "etex",
+            "revision": "77830"
+          },
+          {
+            "name": "etexcmds",
+            "revision": "79461"
+          },
+          {
+            "name": "etoolbox",
+            "revision": "77682"
+          },
+          {
+            "name": "euenc",
+            "revision": "19795"
+          },
+          {
+            "name": "extractbb",
+            "revision": "77855"
+          },
+          {
+            "name": "extractbb.universal-darwin",
+            "revision": "72890"
+          },
+          {
+            "name": "fancyvrb",
+            "revision": "78721"
+          },
+          {
+            "name": "filehook",
+            "revision": "77682"
+          },
+          {
+            "name": "firstaid",
+            "revision": "79234"
+          },
+          {
+            "name": "float",
+            "revision": "79618"
+          },
+          {
+            "name": "fontspec",
+            "revision": "77682"
+          },
+          {
+            "name": "framed",
+            "revision": "77682"
+          },
+          {
+            "name": "geometry",
+            "revision": "78315"
+          },
+          {
+            "name": "gettitlestring",
+            "revision": "79461"
+          },
+          {
+            "name": "glyphlist",
+            "revision": "54074"
+          },
+          {
+            "name": "graphics",
+            "revision": "79234"
+          },
+          {
+            "name": "graphics-cfg",
+            "revision": "41448"
+          },
+          {
+            "name": "graphics-def",
+            "revision": "76719"
+          },
+          {
+            "name": "helvetic",
+            "revision": "77161"
+          },
+          {
+            "name": "hycolor",
+            "revision": "79461"
+          },
+          {
+            "name": "hyperref",
+            "revision": "79408"
+          },
+          {
+            "name": "hyph-utf8",
+            "revision": "79618"
+          },
+          {
+            "name": "hyphen-base",
+            "revision": "78076"
+          },
+          {
+            "name": "iftex",
+            "revision": "77682"
+          },
+          {
+            "name": "inconsolata",
+            "revision": "79618"
+          },
+          {
+            "name": "infwarerr",
+            "revision": "79461"
+          },
+          {
+            "name": "intcalc",
+            "revision": "79461"
+          },
+          {
+            "name": "knuth-lib",
+            "revision": "57963"
+          },
+          {
+            "name": "kpathsea",
+            "revision": "79498"
+          },
+          {
+            "name": "kpathsea.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "kvdefinekeys",
+            "revision": "79461"
+          },
+          {
+            "name": "kvoptions",
+            "revision": "79461"
+          },
+          {
+            "name": "kvsetkeys",
+            "revision": "79461"
+          },
+          {
+            "name": "l3backend",
+            "revision": "78544"
+          },
+          {
+            "name": "l3kernel",
+            "revision": "79405"
+          },
+          {
+            "name": "l3packages",
+            "revision": "76637"
+          },
+          {
+            "name": "latex",
+            "revision": "79618"
+          },
+          {
+            "name": "latex-bin",
+            "revision": "78282"
+          },
+          {
+            "name": "latex-bin.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "latex-fonts",
+            "revision": "79618"
+          },
+          {
+            "name": "latexconfig",
+            "revision": "68923"
+          },
+          {
+            "name": "latexmk",
+            "revision": "78335"
+          },
+          {
+            "name": "latexmk.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "letltxmacro",
+            "revision": "79461"
+          },
+          {
+            "name": "lm",
+            "revision": "77682"
+          },
+          {
+            "name": "lm-math",
+            "revision": "67718"
+          },
+          {
+            "name": "ltxcmds",
+            "revision": "79461"
+          },
+          {
+            "name": "lua-alt-getopt",
+            "revision": "78415"
+          },
+          {
+            "name": "lua-uni-algos",
+            "revision": "76195"
+          },
+          {
+            "name": "luahbtex",
+            "revision": "77830"
+          },
+          {
+            "name": "luahbtex.universal-darwin",
+            "revision": "78048"
+          },
+          {
+            "name": "lualatex-math",
+            "revision": "77682"
+          },
+          {
+            "name": "lualibs",
+            "revision": "78415"
+          },
+          {
+            "name": "luaotfload",
+            "revision": "74324"
+          },
+          {
+            "name": "luaotfload.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "luatex",
+            "revision": "78218"
+          },
+          {
+            "name": "luatex.universal-darwin",
+            "revision": "78048"
+          },
+          {
+            "name": "mdwtools",
+            "revision": "15878"
+          },
+          {
+            "name": "metafont",
+            "revision": "77830"
+          },
+          {
+            "name": "metafont.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "mfware",
+            "revision": "77830"
+          },
+          {
+            "name": "mfware.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "modes",
+            "revision": "77365"
+          },
+          {
+            "name": "natbib",
+            "revision": "79618"
+          },
+          {
+            "name": "pdfescape",
+            "revision": "79461"
+          },
+          {
+            "name": "pdftex",
+            "revision": "79618"
+          },
+          {
+            "name": "pdftex.universal-darwin",
+            "revision": "78096"
+          },
+          {
+            "name": "pdftexcmds",
+            "revision": "79461"
+          },
+          {
+            "name": "plain",
+            "revision": "75712"
+          },
+          {
+            "name": "psnfss",
+            "revision": "79618"
+          },
+          {
+            "name": "refcount",
+            "revision": "79461"
+          },
+          {
+            "name": "rerunfilecheck",
+            "revision": "79461"
+          },
+          {
+            "name": "scheme-infraonly",
+            "revision": "54191"
+          },
+          {
+            "name": "stringenc",
+            "revision": "79461"
+          },
+          {
+            "name": "symbol",
+            "revision": "77161"
+          },
+          {
+            "name": "tex",
+            "revision": "77830"
+          },
+          {
+            "name": "tex-ini-files",
+            "revision": "78524"
+          },
+          {
+            "name": "tex.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "texlive-scripts",
+            "revision": "79836"
+          },
+          {
+            "name": "texlive-scripts-extra",
+            "revision": "78162"
+          },
+          {
+            "name": "texlive-scripts-extra.universal-darwin",
+            "revision": "71749"
+          },
+          {
+            "name": "texlive-scripts.universal-darwin",
+            "revision": "64356"
+          },
+          {
+            "name": "texlive.infra",
+            "revision": "79653"
+          },
+          {
+            "name": "texlive.infra.universal-darwin",
+            "revision": "70811"
+          },
+          {
+            "name": "times",
+            "revision": "77161"
+          },
+          {
+            "name": "tipa",
+            "revision": "79618"
+          },
+          {
+            "name": "tools",
+            "revision": "79234"
+          },
+          {
+            "name": "unicode-data",
+            "revision": "76413"
+          },
+          {
+            "name": "unicode-math",
+            "revision": "78251"
+          },
+          {
+            "name": "uniquecounter",
+            "revision": "79461"
+          },
+          {
+            "name": "url",
+            "revision": "77682"
+          },
+          {
+            "name": "xcolor",
+            "revision": "77682"
+          },
+          {
+            "name": "xetex",
+            "revision": "77830"
+          },
+          {
+            "name": "xetex.universal-darwin",
+            "revision": "77987"
+          },
+          {
+            "name": "xetexconfig",
+            "revision": "45845"
+          },
+          {
+            "name": "xkeyval",
+            "revision": "77682"
+          },
+          {
+            "name": "xunicode",
+            "revision": "77682"
+          },
+          {
+            "name": "zapfding",
+            "revision": "77161"
+          }
+        ]
+      }
+    },
+    "fully_provisioned_runtime": {
+      "logical_bytes": 228441963,
+      "allocated_bytes": 244244480,
+      "allocated_backend": "st_blocks",
+      "regular_files": 6403,
+      "content_identity": {
+        "schema_version": 1,
+        "sha256": "3990f58609bbbcb560911dc09d7aabee17fc66bb4e0e0c7020fa979a8bb5183b",
+        "paths": 7116,
+        "unique_regular_files": 6403
+      },
+      "package_inventory": {
+        "schema_version": 1,
+        "sha256": "0eeb312cb3694ac13f8ebba9a35541348e3809c88e737baafe9ff804333d94cb",
+        "package_count": 123,
+        "source": "tlpkg/texlive.tlpdb name+revision records",
+        "packages": [
+          {
+            "name": "00texlive.config",
+            "revision": null
+          },
+          {
+            "name": "00texlive.installation",
+            "revision": null
+          },
+          {
+            "name": "amscls",
+            "revision": "77682"
+          },
+          {
+            "name": "amsfonts",
+            "revision": "77682"
+          },
+          {
+            "name": "amsmath",
+            "revision": "79234"
+          },
+          {
+            "name": "atbegshi",
+            "revision": "79461"
+          },
+          {
+            "name": "atveryend",
+            "revision": "79461"
+          },
+          {
+            "name": "auxhook",
+            "revision": "79461"
+          },
+          {
+            "name": "babel",
+            "revision": "79370"
+          },
+          {
+            "name": "bibtex",
+            "revision": "77830"
+          },
+          {
+            "name": "bibtex.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "bigintcalc",
+            "revision": "79461"
+          },
+          {
+            "name": "bitset",
+            "revision": "79461"
+          },
+          {
+            "name": "bookmark",
+            "revision": "79461"
+          },
+          {
+            "name": "booktabs",
+            "revision": "77682"
+          },
+          {
+            "name": "cm",
+            "revision": "57963"
+          },
+          {
+            "name": "dehyph",
+            "revision": "48599"
+          },
+          {
+            "name": "dvipdfmx",
+            "revision": "78409"
+          },
+          {
+            "name": "dvipdfmx.universal-darwin",
+            "revision": "78429"
+          },
+          {
+            "name": "dvips",
+            "revision": "77830"
+          },
+          {
+            "name": "dvips.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "ec",
+            "revision": "25033"
+          },
+          {
+            "name": "epstopdf",
+            "revision": "71782"
+          },
+          {
+            "name": "epstopdf-pkg",
+            "revision": "79461"
+          },
+          {
+            "name": "epstopdf.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "etex",
+            "revision": "77830"
+          },
+          {
+            "name": "etexcmds",
+            "revision": "79461"
+          },
+          {
+            "name": "etoolbox",
+            "revision": "77682"
+          },
+          {
+            "name": "euenc",
+            "revision": "19795"
+          },
+          {
+            "name": "extractbb",
+            "revision": "77855"
+          },
+          {
+            "name": "extractbb.universal-darwin",
+            "revision": "72890"
+          },
+          {
+            "name": "fancyvrb",
+            "revision": "78721"
+          },
+          {
+            "name": "filehook",
+            "revision": "77682"
+          },
+          {
+            "name": "firstaid",
+            "revision": "79234"
+          },
+          {
+            "name": "float",
+            "revision": "79618"
+          },
+          {
+            "name": "fontspec",
+            "revision": "77682"
+          },
+          {
+            "name": "framed",
+            "revision": "77682"
+          },
+          {
+            "name": "geometry",
+            "revision": "78315"
+          },
+          {
+            "name": "gettitlestring",
+            "revision": "79461"
+          },
+          {
+            "name": "glyphlist",
+            "revision": "54074"
+          },
+          {
+            "name": "graphics",
+            "revision": "79234"
+          },
+          {
+            "name": "graphics-cfg",
+            "revision": "41448"
+          },
+          {
+            "name": "graphics-def",
+            "revision": "76719"
+          },
+          {
+            "name": "helvetic",
+            "revision": "77161"
+          },
+          {
+            "name": "hycolor",
+            "revision": "79461"
+          },
+          {
+            "name": "hyperref",
+            "revision": "79408"
+          },
+          {
+            "name": "hyph-utf8",
+            "revision": "79618"
+          },
+          {
+            "name": "hyphen-base",
+            "revision": "78076"
+          },
+          {
+            "name": "iftex",
+            "revision": "77682"
+          },
+          {
+            "name": "inconsolata",
+            "revision": "79618"
+          },
+          {
+            "name": "infwarerr",
+            "revision": "79461"
+          },
+          {
+            "name": "intcalc",
+            "revision": "79461"
+          },
+          {
+            "name": "knuth-lib",
+            "revision": "57963"
+          },
+          {
+            "name": "kpathsea",
+            "revision": "79498"
+          },
+          {
+            "name": "kpathsea.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "kvdefinekeys",
+            "revision": "79461"
+          },
+          {
+            "name": "kvoptions",
+            "revision": "79461"
+          },
+          {
+            "name": "kvsetkeys",
+            "revision": "79461"
+          },
+          {
+            "name": "l3backend",
+            "revision": "78544"
+          },
+          {
+            "name": "l3kernel",
+            "revision": "79405"
+          },
+          {
+            "name": "l3packages",
+            "revision": "76637"
+          },
+          {
+            "name": "latex",
+            "revision": "79618"
+          },
+          {
+            "name": "latex-bin",
+            "revision": "78282"
+          },
+          {
+            "name": "latex-bin.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "latex-fonts",
+            "revision": "79618"
+          },
+          {
+            "name": "latexconfig",
+            "revision": "68923"
+          },
+          {
+            "name": "latexmk",
+            "revision": "78335"
+          },
+          {
+            "name": "latexmk.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "letltxmacro",
+            "revision": "79461"
+          },
+          {
+            "name": "lm",
+            "revision": "77682"
+          },
+          {
+            "name": "lm-math",
+            "revision": "67718"
+          },
+          {
+            "name": "ltxcmds",
+            "revision": "79461"
+          },
+          {
+            "name": "lua-alt-getopt",
+            "revision": "78415"
+          },
+          {
+            "name": "lua-uni-algos",
+            "revision": "76195"
+          },
+          {
+            "name": "luahbtex",
+            "revision": "77830"
+          },
+          {
+            "name": "luahbtex.universal-darwin",
+            "revision": "78048"
+          },
+          {
+            "name": "lualatex-math",
+            "revision": "77682"
+          },
+          {
+            "name": "lualibs",
+            "revision": "78415"
+          },
+          {
+            "name": "luaotfload",
+            "revision": "74324"
+          },
+          {
+            "name": "luaotfload.universal-darwin",
+            "revision": "57908"
+          },
+          {
+            "name": "luatex",
+            "revision": "78218"
+          },
+          {
+            "name": "luatex.universal-darwin",
+            "revision": "78048"
+          },
+          {
+            "name": "mdwtools",
+            "revision": "15878"
+          },
+          {
+            "name": "metafont",
+            "revision": "77830"
+          },
+          {
+            "name": "metafont.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "mfware",
+            "revision": "77830"
+          },
+          {
+            "name": "mfware.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "modes",
+            "revision": "77365"
+          },
+          {
+            "name": "natbib",
+            "revision": "79618"
+          },
+          {
+            "name": "pdfescape",
+            "revision": "79461"
+          },
+          {
+            "name": "pdftex",
+            "revision": "79618"
+          },
+          {
+            "name": "pdftex.universal-darwin",
+            "revision": "78096"
+          },
+          {
+            "name": "pdftexcmds",
+            "revision": "79461"
+          },
+          {
+            "name": "plain",
+            "revision": "75712"
+          },
+          {
+            "name": "psnfss",
+            "revision": "79618"
+          },
+          {
+            "name": "refcount",
+            "revision": "79461"
+          },
+          {
+            "name": "rerunfilecheck",
+            "revision": "79461"
+          },
+          {
+            "name": "scheme-infraonly",
+            "revision": "54191"
+          },
+          {
+            "name": "stringenc",
+            "revision": "79461"
+          },
+          {
+            "name": "symbol",
+            "revision": "77161"
+          },
+          {
+            "name": "tex",
+            "revision": "77830"
+          },
+          {
+            "name": "tex-ini-files",
+            "revision": "78524"
+          },
+          {
+            "name": "tex.universal-darwin",
+            "revision": "77928"
+          },
+          {
+            "name": "texlive-scripts",
+            "revision": "79836"
+          },
+          {
+            "name": "texlive-scripts-extra",
+            "revision": "78162"
+          },
+          {
+            "name": "texlive-scripts-extra.universal-darwin",
+            "revision": "71749"
+          },
+          {
+            "name": "texlive-scripts.universal-darwin",
+            "revision": "64356"
+          },
+          {
+            "name": "texlive.infra",
+            "revision": "79653"
+          },
+          {
+            "name": "texlive.infra.universal-darwin",
+            "revision": "70811"
+          },
+          {
+            "name": "times",
+            "revision": "77161"
+          },
+          {
+            "name": "tipa",
+            "revision": "79618"
+          },
+          {
+            "name": "tools",
+            "revision": "79234"
+          },
+          {
+            "name": "unicode-data",
+            "revision": "76413"
+          },
+          {
+            "name": "unicode-math",
+            "revision": "78251"
+          },
+          {
+            "name": "uniquecounter",
+            "revision": "79461"
+          },
+          {
+            "name": "url",
+            "revision": "77682"
+          },
+          {
+            "name": "xcolor",
+            "revision": "77682"
+          },
+          {
+            "name": "xetex",
+            "revision": "77830"
+          },
+          {
+            "name": "xetex.universal-darwin",
+            "revision": "77987"
+          },
+          {
+            "name": "xetexconfig",
+            "revision": "45845"
+          },
+          {
+            "name": "xkeyval",
+            "revision": "77682"
+          },
+          {
+            "name": "xunicode",
+            "revision": "77682"
+          },
+          {
+            "name": "zapfding",
+            "revision": "77161"
+          }
+        ]
+      }
+    }
+  },
+  "samples": [
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "first_build_simple",
+      "state": "runtime_empty_map_empty_project_clean",
+      "iteration": 1,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": true,
+        "control": "uncontrolled",
+        "source": "TinyTeX release artifact and TeX Live repository"
+      },
+      "notes": "Authoritative user-visible observation with an initially empty managed runtime; network and CDN state are uncontrolled.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/empty-runtime-project",
+      "returncode": 0,
+      "wall_time_ns": 12302676292,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 5867556000,
+        "system_cpu_ns": 1127229000,
+        "peak_child_rss_bytes": 54788096,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 16085,
+        "major_page_faults": 22,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 309,
+        "involuntary_context_switches": 6190
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 94224384,
+        "unique_process_count": 6
+      },
+      "output_bytes": 355,
+      "output_sha256": "406c898bf5365637ad965855b00f29f93df84c1198d96b6975e31f5f64ee0657",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "first_build_simple",
+      "state": "runtime_empty_map_empty_project_clean",
+      "iteration": 2,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": true,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": true,
+        "control": "uncontrolled",
+        "source": "TinyTeX release artifact and TeX Live repository"
+      },
+      "notes": "Attribution-only observation excluded from the timing summary; response-body bytes are observed, while network state remains uncontrolled.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/empty-runtime-attribution-project",
+      "returncode": 0,
+      "wall_time_ns": 11865865708,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 5866409000,
+        "system_cpu_ns": 1081754000,
+        "peak_child_rss_bytes": 49528832,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 15851,
+        "major_page_faults": 22,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 243,
+        "involuntary_context_switches": 5716
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 89309184,
+        "unique_process_count": 6
+      },
+      "output_bytes": 355,
+      "output_sha256": "c8547255923ee03d3b9369cdf1bc2a99001691e69ebfa21cda5eb50fd697be4d",
+      "failure_tail": [],
+      "trace_summary": {
+        "events": 0
+      }
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_version",
+      "state": "source_tree_managed_python",
+      "iteration": 1,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--version"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 46174792,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 36163000,
+        "system_cpu_ns": 6574000,
+        "peak_child_rss_bytes": 23248896,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1831,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 1,
+        "involuntary_context_switches": 12
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 21610496,
+        "unique_process_count": 1
+      },
+      "output_bytes": 6,
+      "output_sha256": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_version",
+      "state": "source_tree_managed_python",
+      "iteration": 2,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--version"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 48902458,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 36418000,
+        "system_cpu_ns": 5689000,
+        "peak_child_rss_bytes": 23478272,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1859,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 11
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 22249472,
+        "unique_process_count": 1
+      },
+      "output_bytes": 6,
+      "output_sha256": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_version",
+      "state": "source_tree_managed_python",
+      "iteration": 3,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--version"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 47271250,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 35993000,
+        "system_cpu_ns": 5941000,
+        "peak_child_rss_bytes": 23363584,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1859,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 12
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 21594112,
+        "unique_process_count": 1
+      },
+      "output_bytes": 6,
+      "output_sha256": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_version",
+      "state": "source_tree_managed_python",
+      "iteration": 4,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--version"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 46742750,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 36697000,
+        "system_cpu_ns": 5796000,
+        "peak_child_rss_bytes": 23494656,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1855,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 13
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 22364160,
+        "unique_process_count": 1
+      },
+      "output_bytes": 6,
+      "output_sha256": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_version",
+      "state": "source_tree_managed_python",
+      "iteration": 5,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--version"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 49368459,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 37259000,
+        "system_cpu_ns": 5412000,
+        "peak_child_rss_bytes": 23461888,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1868,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 15
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 23117824,
+        "unique_process_count": 1
+      },
+      "output_bytes": 6,
+      "output_sha256": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_version",
+      "state": "source_tree_managed_python",
+      "iteration": 6,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": true,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--version"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 45328083,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 36402000,
+        "system_cpu_ns": 6000000,
+        "peak_child_rss_bytes": 22970368,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1807,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 11
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 21348352,
+        "unique_process_count": 1
+      },
+      "output_bytes": 6,
+      "output_sha256": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
+      "failure_tail": [],
+      "trace_summary": {
+        "events": 0
+      }
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_help",
+      "state": "source_tree_managed_python",
+      "iteration": 1,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--help"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 48569500,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 37019000,
+        "system_cpu_ns": 5868000,
+        "peak_child_rss_bytes": 23543808,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1848,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 12
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 22249472,
+        "unique_process_count": 1
+      },
+      "output_bytes": 748,
+      "output_sha256": "15106739f3e07dc4a1e7a5f25399963df4c86797c039a82140fb37ae470a7327",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_help",
+      "state": "source_tree_managed_python",
+      "iteration": 2,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--help"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 47976500,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 36518000,
+        "system_cpu_ns": 5757000,
+        "peak_child_rss_bytes": 23085056,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1809,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 12
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 21708800,
+        "unique_process_count": 1
+      },
+      "output_bytes": 748,
+      "output_sha256": "15106739f3e07dc4a1e7a5f25399963df4c86797c039a82140fb37ae470a7327",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_help",
+      "state": "source_tree_managed_python",
+      "iteration": 3,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--help"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 45380917,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 35383000,
+        "system_cpu_ns": 5592000,
+        "peak_child_rss_bytes": 22511616,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1794,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 10
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 20987904,
+        "unique_process_count": 1
+      },
+      "output_bytes": 748,
+      "output_sha256": "15106739f3e07dc4a1e7a5f25399963df4c86797c039a82140fb37ae470a7327",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_help",
+      "state": "source_tree_managed_python",
+      "iteration": 4,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--help"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 48850417,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 36915000,
+        "system_cpu_ns": 5414000,
+        "peak_child_rss_bytes": 23265280,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1830,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 16
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 22593536,
+        "unique_process_count": 1
+      },
+      "output_bytes": 748,
+      "output_sha256": "15106739f3e07dc4a1e7a5f25399963df4c86797c039a82140fb37ae470a7327",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_help",
+      "state": "source_tree_managed_python",
+      "iteration": 5,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--help"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 46301834,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 36949000,
+        "system_cpu_ns": 5229000,
+        "peak_child_rss_bytes": 22839296,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1828,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 13
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 22298624,
+        "unique_process_count": 1
+      },
+      "output_bytes": 748,
+      "output_sha256": "15106739f3e07dc4a1e7a5f25399963df4c86797c039a82140fb37ae470a7327",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "startup_help",
+      "state": "source_tree_managed_python",
+      "iteration": 6,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": true,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "--help"
+      ],
+      "cwd": "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect",
+      "returncode": 0,
+      "wall_time_ns": 48604125,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 35498000,
+        "system_cpu_ns": 5911000,
+        "peak_child_rss_bytes": 22593536,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 1807,
+        "major_page_faults": 0,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 0,
+        "involuntary_context_switches": 9
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 21823488,
+        "unique_process_count": 1
+      },
+      "output_bytes": 748,
+      "output_sha256": "15106739f3e07dc4a1e7a5f25399963df4c86797c039a82140fb37ae470a7327",
+      "failure_tail": [],
+      "trace_summary": {
+        "events": 0
+      }
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 1,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/clean-projects/simple/1",
+      "returncode": 0,
+      "wall_time_ns": 378073083,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 317981000,
+        "system_cpu_ns": 50889000,
+        "peak_child_rss_bytes": 25018368,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 13605,
+        "major_page_faults": 22,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 151,
+        "involuntary_context_switches": 150
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64765952,
+        "unique_process_count": 5
+      },
+      "output_bytes": 120,
+      "output_sha256": "ef1ebc06ed1f201f31ba44a18f555edbed4767cec94183ae46142fbef998ae7b",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 2,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/clean-projects/simple/2",
+      "returncode": 0,
+      "wall_time_ns": 387092584,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 319306000,
+        "system_cpu_ns": 53229000,
+        "peak_child_rss_bytes": 25034752,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 13808,
+        "major_page_faults": 22,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 155,
+        "involuntary_context_switches": 162
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 65159168,
+        "unique_process_count": 5
+      },
+      "output_bytes": 120,
+      "output_sha256": "43f09a08ccf220a70c12e76d3426a8d20374f6efc6fb5bab12f19cfbe960c3db",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 3,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/clean-projects/simple/3",
+      "returncode": 0,
+      "wall_time_ns": 389521000,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 322182000,
+        "system_cpu_ns": 54104000,
+        "peak_child_rss_bytes": 25001984,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 13780,
+        "major_page_faults": 22,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 150,
+        "involuntary_context_switches": 170
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 65224704,
+        "unique_process_count": 5
+      },
+      "output_bytes": 120,
+      "output_sha256": "43f09a08ccf220a70c12e76d3426a8d20374f6efc6fb5bab12f19cfbe960c3db",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_noop",
+      "iteration": 1,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/stateful-projects/simple",
+      "returncode": 0,
+      "wall_time_ns": 198368958,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 159862000,
+        "system_cpu_ns": 29221000,
+        "peak_child_rss_bytes": 23642112,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 8970,
+        "major_page_faults": 14,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 29,
+        "involuntary_context_switches": 108
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 40599552,
+        "unique_process_count": 3
+      },
+      "output_bytes": 57,
+      "output_sha256": "2d50d0ed83728acaca0071aadab6fe22376e0855be031465045a1e83b69b988c",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_noop",
+      "iteration": 2,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/stateful-projects/simple",
+      "returncode": 0,
+      "wall_time_ns": 197568000,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 159995000,
+        "system_cpu_ns": 29171000,
+        "peak_child_rss_bytes": 23166976,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 8815,
+        "major_page_faults": 14,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 30,
+        "involuntary_context_switches": 104
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 39878656,
+        "unique_process_count": 3
+      },
+      "output_bytes": 57,
+      "output_sha256": "2d50d0ed83728acaca0071aadab6fe22376e0855be031465045a1e83b69b988c",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_noop",
+      "iteration": 3,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/stateful-projects/simple",
+      "returncode": 0,
+      "wall_time_ns": 198556333,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 160070000,
+        "system_cpu_ns": 30165000,
+        "peak_child_rss_bytes": 23379968,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 8765,
+        "major_page_faults": 14,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 32,
+        "involuntary_context_switches": 116
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 40370176,
+        "unique_process_count": 3
+      },
+      "output_bytes": 57,
+      "output_sha256": "2d50d0ed83728acaca0071aadab6fe22376e0855be031465045a1e83b69b988c",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_noop",
+      "iteration": 4,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": true,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/stateful-projects/simple",
+      "returncode": 0,
+      "wall_time_ns": 195047792,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 159247000,
+        "system_cpu_ns": 29922000,
+        "peak_child_rss_bytes": 23674880,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 8908,
+        "major_page_faults": 14,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 29,
+        "involuntary_context_switches": 100
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 40583168,
+        "unique_process_count": 3
+      },
+      "output_bytes": 57,
+      "output_sha256": "2d50d0ed83728acaca0071aadab6fe22376e0855be031465045a1e83b69b988c",
+      "failure_tail": [],
+      "trace_summary": {
+        "events": 0
+      }
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_incremental_one_line",
+      "iteration": 1,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {
+          "simple.pdf": {
+            "before_sha256": "a50e0d8b71cdeb32379bf2ae7d781e1009f83ef67d32b3ae73dd9f7abea68c6f",
+            "after_sha256": "2a6bf4274f6cc8e586d00a9b93d6df09a0860269690e1e53cf691a04aafccf4b",
+            "changed": true
+          }
+        }
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": "Inserted visible in-document marker 'texMini benchmark visible edit 1'; the expected PDF must have a different content digest from the prior build.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/stateful-projects/simple",
+      "returncode": 0,
+      "wall_time_ns": 291159625,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 237926000,
+        "system_cpu_ns": 41494000,
+        "peak_child_rss_bytes": 25133056,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11439,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 91,
+        "involuntary_context_switches": 139
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 65470464,
+        "unique_process_count": 4
+      },
+      "output_bytes": 120,
+      "output_sha256": "1835ad362e28b1681154e1e5dce7e687e820c6a2ddc4f2c8273e92942d807401",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_incremental_one_line",
+      "iteration": 2,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {
+          "simple.pdf": {
+            "before_sha256": "f07b7637f66151b4d55354dec1e7a3fc38b25b1819e606a7a1eb9c4700af2ac2",
+            "after_sha256": "dd25ab223a7e3779c6d12e06584b7d312fde2e938e944628159a1654a3ae6976",
+            "changed": true
+          }
+        }
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": "Inserted visible in-document marker 'texMini benchmark visible edit 2'; the expected PDF must have a different content digest from the prior build.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/stateful-projects/simple",
+      "returncode": 0,
+      "wall_time_ns": 288609708,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 240452000,
+        "system_cpu_ns": 40398000,
+        "peak_child_rss_bytes": 24920064,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11371,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 93,
+        "involuntary_context_switches": 141
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64733184,
+        "unique_process_count": 4
+      },
+      "output_bytes": 120,
+      "output_sha256": "1835ad362e28b1681154e1e5dce7e687e820c6a2ddc4f2c8273e92942d807401",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "build_simple",
+      "state": "project_incremental_one_line",
+      "iteration": 3,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {
+          "simple.pdf": true
+        },
+        "required_output": {},
+        "required_changed_artifacts": {
+          "simple.pdf": {
+            "before_sha256": "f07b7637f66151b4d55354dec1e7a3fc38b25b1819e606a7a1eb9c4700af2ac2",
+            "after_sha256": "59aacc11c51310d13a6477e75a1993fa0f6d255abcd3f5c74826d36d6ab2d04a",
+            "changed": true
+          }
+        }
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": "Inserted visible in-document marker 'texMini benchmark visible edit 3'; the expected PDF must have a different content digest from the prior build.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/stateful-projects/simple",
+      "returncode": 0,
+      "wall_time_ns": 285781500,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 237592000,
+        "system_cpu_ns": 40339000,
+        "peak_child_rss_bytes": 24772608,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11243,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 93,
+        "involuntary_context_switches": 126
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 63979520,
+        "unique_process_count": 4
+      },
+      "output_bytes": 120,
+      "output_sha256": "1835ad362e28b1681154e1e5dce7e687e820c6a2ddc4f2c8273e92942d807401",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_failure",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 1,
+      "expected_returncode": "nonzero",
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {
+          "failure.log": true
+        },
+        "required_output": {
+          "Build failed:": true,
+          "See failure.log": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "failure.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/failure/1",
+      "returncode": 12,
+      "wall_time_ns": 253709417,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 207104000,
+        "system_cpu_ns": 38926000,
+        "peak_child_rss_bytes": 23855104,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11869,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 61,
+        "involuntary_context_switches": 127
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 63684608,
+        "unique_process_count": 4
+      },
+      "output_bytes": 125,
+      "output_sha256": "6f2477347d41a335e5209623fe703dbd180b06728165c03b8752900f82a3e178",
+      "failure_tail": [
+        "Compiling failure.tex...",
+        "Build failed: Undefined control sequence at failure.tex:3",
+        "See failure.log for complete diagnostics."
+      ]
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_failure",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 2,
+      "expected_returncode": "nonzero",
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {
+          "failure.log": true
+        },
+        "required_output": {
+          "Build failed:": true,
+          "See failure.log": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "failure.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/failure/2",
+      "returncode": 12,
+      "wall_time_ns": 258030167,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 207918000,
+        "system_cpu_ns": 39192000,
+        "peak_child_rss_bytes": 24051712,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11965,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 56,
+        "involuntary_context_switches": 134
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 63881216,
+        "unique_process_count": 4
+      },
+      "output_bytes": 125,
+      "output_sha256": "6f2477347d41a335e5209623fe703dbd180b06728165c03b8752900f82a3e178",
+      "failure_tail": [
+        "Compiling failure.tex...",
+        "Build failed: Undefined control sequence at failure.tex:3",
+        "See failure.log for complete diagnostics."
+      ]
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_failure",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 3,
+      "expected_returncode": "nonzero",
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {
+          "failure.log": true
+        },
+        "required_output": {
+          "Build failed:": true,
+          "See failure.log": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "failure.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/failure/3",
+      "returncode": 12,
+      "wall_time_ns": 255226833,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 207146000,
+        "system_cpu_ns": 39668000,
+        "peak_child_rss_bytes": 24018944,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 12012,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 59,
+        "involuntary_context_switches": 130
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64585728,
+        "unique_process_count": 4
+      },
+      "output_bytes": 125,
+      "output_sha256": "6f2477347d41a335e5209623fe703dbd180b06728165c03b8752900f82a3e178",
+      "failure_tail": [
+        "Compiling failure.tex...",
+        "Build failed: Undefined control sequence at failure.tex:3",
+        "See failure.log for complete diagnostics."
+      ]
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_failure",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 4,
+      "expected_returncode": "nonzero",
+      "semantic_success": true,
+      "instrumented": true,
+      "semantic_assertions": {
+        "required_pdf": false,
+        "required_artifacts": {
+          "failure.log": true
+        },
+        "required_output": {
+          "Build failed:": true,
+          "See failure.log": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "failure.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/failure/trace",
+      "returncode": 12,
+      "wall_time_ns": 262457417,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 209466000,
+        "system_cpu_ns": 40430000,
+        "peak_child_rss_bytes": 24576000,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 12077,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 58,
+        "involuntary_context_switches": 136
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64831488,
+        "unique_process_count": 4
+      },
+      "output_bytes": 125,
+      "output_sha256": "6f2477347d41a335e5209623fe703dbd180b06728165c03b8752900f82a3e178",
+      "failure_tail": [
+        "Compiling failure.tex...",
+        "Build failed: Undefined control sequence at failure.tex:3",
+        "See failure.log for complete diagnostics."
+      ],
+      "trace_summary": {
+        "events": 0
+      }
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_incomplete",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 1,
+      "expected_returncode": 1,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {
+          "with missing document content": true,
+          "Auxiliary build files were retained for diagnosis.": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "incomplete.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/incomplete/1",
+      "returncode": 1,
+      "wall_time_ns": 261238292,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 209495000,
+        "system_cpu_ns": 38536000,
+        "peak_child_rss_bytes": 24870912,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11337,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 66,
+        "involuntary_context_switches": 124
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64716800,
+        "unique_process_count": 4
+      },
+      "output_bytes": 341,
+      "output_sha256": "4bab425ee8e1b41fbcf84ffab5786b433054ef50b7703edc167260430ffcd031",
+      "failure_tail": [
+        "Compiling incomplete.tex...",
+        "LaTeX Warning: Reference `missing-label' on page 1 undefined on input line 3.",
+        "LaTeX Warning: There were undefined references.",
+        "Built incomplete.pdf with missing document content in 0.21s.",
+        "The PDF contains missing characters or unresolved citations or references.",
+        "Auxiliary build files were retained for diagnosis."
+      ]
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_incomplete",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 2,
+      "expected_returncode": 1,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {
+          "with missing document content": true,
+          "Auxiliary build files were retained for diagnosis.": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "incomplete.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/incomplete/2",
+      "returncode": 1,
+      "wall_time_ns": 255715541,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 208922000,
+        "system_cpu_ns": 38464000,
+        "peak_child_rss_bytes": 24739840,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11226,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 62,
+        "involuntary_context_switches": 128
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64602112,
+        "unique_process_count": 4
+      },
+      "output_bytes": 341,
+      "output_sha256": "4bab425ee8e1b41fbcf84ffab5786b433054ef50b7703edc167260430ffcd031",
+      "failure_tail": [
+        "Compiling incomplete.tex...",
+        "LaTeX Warning: Reference `missing-label' on page 1 undefined on input line 3.",
+        "LaTeX Warning: There were undefined references.",
+        "Built incomplete.pdf with missing document content in 0.21s.",
+        "The PDF contains missing characters or unresolved citations or references.",
+        "Auxiliary build files were retained for diagnosis."
+      ]
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_incomplete",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 3,
+      "expected_returncode": 1,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {
+          "with missing document content": true,
+          "Auxiliary build files were retained for diagnosis.": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "incomplete.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/incomplete/3",
+      "returncode": 1,
+      "wall_time_ns": 256460625,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 208570000,
+        "system_cpu_ns": 39121000,
+        "peak_child_rss_bytes": 24641536,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11439,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 61,
+        "involuntary_context_switches": 127
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64749568,
+        "unique_process_count": 4
+      },
+      "output_bytes": 341,
+      "output_sha256": "4bab425ee8e1b41fbcf84ffab5786b433054ef50b7703edc167260430ffcd031",
+      "failure_tail": [
+        "Compiling incomplete.tex...",
+        "LaTeX Warning: Reference `missing-label' on page 1 undefined on input line 3.",
+        "LaTeX Warning: There were undefined references.",
+        "Built incomplete.pdf with missing document content in 0.21s.",
+        "The PDF contains missing characters or unresolved citations or references.",
+        "Auxiliary build files were retained for diagnosis."
+      ]
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "diagnostic_incomplete",
+      "state": "project_clean_runtime_provisioned",
+      "iteration": 4,
+      "expected_returncode": 1,
+      "semantic_success": true,
+      "instrumented": true,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {
+          "with missing document content": true,
+          "Auxiliary build files were retained for diagnosis.": true
+        },
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": null,
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/Users/alexmill/Documents/Codex/2026-08-15/ple/work/texMini-inspect/.venv/bin/python3",
+        "-m",
+        "texmini.cli",
+        "incomplete.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/failure-projects/incomplete/trace",
+      "returncode": 1,
+      "wall_time_ns": 258631667,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 209592000,
+        "system_cpu_ns": 38980000,
+        "peak_child_rss_bytes": 24625152,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 11372,
+        "major_page_faults": 18,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 62,
+        "involuntary_context_switches": 116
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 64602112,
+        "unique_process_count": 4
+      },
+      "output_bytes": 341,
+      "output_sha256": "4bab425ee8e1b41fbcf84ffab5786b433054ef50b7703edc167260430ffcd031",
+      "failure_tail": [
+        "Compiling incomplete.tex...",
+        "LaTeX Warning: Reference `missing-label' on page 1 undefined on input line 3.",
+        "LaTeX Warning: There were undefined references.",
+        "Built incomplete.pdf with missing document content in 0.21s.",
+        "The PDF contains missing characters or unresolved citations or references.",
+        "Auxiliary build files were retained for diagnosis."
+      ],
+      "trace_summary": {
+        "events": 0
+      }
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "competitor_raw_latexmk",
+      "state": "project_noop_fully_provisioned",
+      "iteration": 1,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": "Overlapping no-op compile only: raw latexmk lacks texMini runtime, package recovery, diagnostics, and security semantics.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/runtime-provisioned/bin/universal-darwin/latexmk",
+        "-pdf",
+        "-cd",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/competitor/raw-latexmk",
+      "returncode": 0,
+      "wall_time_ns": 73564250,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 60127000,
+        "system_cpu_ns": 10139000,
+        "peak_child_rss_bytes": 16891904,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 2715,
+        "major_page_faults": 7,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 6,
+        "involuntary_context_switches": 40
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 15761408,
+        "unique_process_count": 1
+      },
+      "output_bytes": 355,
+      "output_sha256": "dc734e6e6e700149d6ffd3f7645b0a0b19ef08b3cbd3fa465415474026485409",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "competitor_raw_latexmk",
+      "state": "project_noop_fully_provisioned",
+      "iteration": 2,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": "Overlapping no-op compile only: raw latexmk lacks texMini runtime, package recovery, diagnostics, and security semantics.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/runtime-provisioned/bin/universal-darwin/latexmk",
+        "-pdf",
+        "-cd",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/competitor/raw-latexmk",
+      "returncode": 0,
+      "wall_time_ns": 74623333,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 59456000,
+        "system_cpu_ns": 9920000,
+        "peak_child_rss_bytes": 17137664,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 2738,
+        "major_page_faults": 7,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 7,
+        "involuntary_context_switches": 52
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 15974400,
+        "unique_process_count": 1
+      },
+      "output_bytes": 355,
+      "output_sha256": "dc734e6e6e700149d6ffd3f7645b0a0b19ef08b3cbd3fa465415474026485409",
+      "failure_tail": []
+    },
+    {
+      "candidate_id": "baseline-1cb7a537-cold-final-harness",
+      "scenario": "competitor_raw_latexmk",
+      "state": "project_noop_fully_provisioned",
+      "iteration": 3,
+      "expected_returncode": 0,
+      "semantic_success": true,
+      "instrumented": false,
+      "semantic_assertions": {
+        "required_pdf": true,
+        "required_artifacts": {},
+        "required_output": {},
+        "required_changed_artifacts": {}
+      },
+      "network": {
+        "dependent": false,
+        "control": "not expected",
+        "source": null
+      },
+      "notes": "Overlapping no-op compile only: raw latexmk lacks texMini runtime, package recovery, diagnostics, and security semantics.",
+      "log": null,
+      "trace": null,
+      "schema_version": 1,
+      "command": [
+        "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/runtime-provisioned/bin/universal-darwin/latexmk",
+        "-pdf",
+        "-cd",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "simple.tex"
+      ],
+      "cwd": "/var/folders/k0/4lbxsmp12vn264xc8xxwsh840000gn/T/texmini-benchmark-4u1c5xb8/competitor/raw-latexmk",
+      "returncode": 0,
+      "wall_time_ns": 76355042,
+      "resources": {
+        "backend": "resource.RUSAGE_CHILDREN",
+        "user_cpu_ns": 59734000,
+        "system_cpu_ns": 9154000,
+        "peak_child_rss_bytes": 16744448,
+        "peak_rss_fidelity": "maximum waited child; not aggregate concurrent tree RSS",
+        "minor_page_faults": 2679,
+        "major_page_faults": 7,
+        "block_inputs": 0,
+        "block_outputs": 0,
+        "voluntary_context_switches": 6,
+        "involuntary_context_switches": 43
+      },
+      "process_tree": {
+        "backend": "psutil sampled descendant tree",
+        "sample_interval_seconds": 0.005,
+        "peak_tree_rss_bytes": 16416768,
+        "unique_process_count": 1
+      },
+      "output_bytes": 355,
+      "output_sha256": "dc734e6e6e700149d6ffd3f7645b0a0b19ef08b3cbd3fa465415474026485409",
+      "failure_tail": []
+    }
+  ],
+  "summary": {
+    "build_simple/project_clean_runtime_provisioned": {
+      "valid_samples": 3,
+      "wall_time_ns": {
+        "median": 387092584,
+        "mad": 2428416,
+        "min": 378073083,
+        "max": 389521000,
+        "p95": 389521000,
+        "aa_alternating_median_delta": 3295542
+      },
+      "cpu_time_ns_median": 372535000,
+      "peak_child_rss_bytes_median": 25018368,
+      "peak_tree_rss_bytes_median": 65159168,
+      "peak_tree_rss_valid_samples": 3
+    },
+    "build_simple/project_incremental_one_line": {
+      "valid_samples": 3,
+      "wall_time_ns": {
+        "median": 288609708,
+        "mad": 2549917,
+        "min": 285781500,
+        "max": 291159625,
+        "p95": 291159625,
+        "aa_alternating_median_delta": 139145
+      },
+      "cpu_time_ns_median": 279420000,
+      "peak_child_rss_bytes_median": 24920064,
+      "peak_tree_rss_bytes_median": 64733184,
+      "peak_tree_rss_valid_samples": 3
+    },
+    "build_simple/project_noop": {
+      "valid_samples": 3,
+      "wall_time_ns": {
+        "median": 198368958,
+        "mad": 187375,
+        "min": 197568000,
+        "max": 198556333,
+        "p95": 198556333,
+        "aa_alternating_median_delta": 894645
+      },
+      "cpu_time_ns_median": 189166000,
+      "peak_child_rss_bytes_median": 23379968,
+      "peak_tree_rss_bytes_median": 40370176,
+      "peak_tree_rss_valid_samples": 3
+    },
+    "competitor_raw_latexmk/project_noop_fully_provisioned": {
+      "valid_samples": 3,
+      "wall_time_ns": {
+        "median": 74623333,
+        "mad": 1059083,
+        "min": 73564250,
+        "max": 76355042,
+        "p95": 76355042,
+        "aa_alternating_median_delta": 336313
+      },
+      "cpu_time_ns_median": 69376000,
+      "peak_child_rss_bytes_median": 16891904,
+      "peak_tree_rss_bytes_median": 15974400,
+      "peak_tree_rss_valid_samples": 3
+    },
+    "diagnostic_failure/project_clean_runtime_provisioned": {
+      "valid_samples": 3,
+      "wall_time_ns": {
+        "median": 255226833,
+        "mad": 1517416,
+        "min": 253709417,
+        "max": 258030167,
+        "p95": 258030167,
+        "aa_alternating_median_delta": 3562042
+      },
+      "cpu_time_ns_median": 246814000,
+      "peak_child_rss_bytes_median": 24018944,
+      "peak_tree_rss_bytes_median": 63881216,
+      "peak_tree_rss_valid_samples": 3
+    },
+    "diagnostic_incomplete/project_clean_runtime_provisioned": {
+      "valid_samples": 3,
+      "wall_time_ns": {
+        "median": 256460625,
+        "mad": 745084,
+        "min": 255715541,
+        "max": 261238292,
+        "p95": 261238292,
+        "aa_alternating_median_delta": 3133917
+      },
+      "cpu_time_ns_median": 247691000,
+      "peak_child_rss_bytes_median": 24739840,
+      "peak_tree_rss_bytes_median": 64716800,
+      "peak_tree_rss_valid_samples": 3
+    },
+    "first_build_simple/runtime_empty_map_empty_project_clean": {
+      "valid_samples": 1,
+      "wall_time_ns": {
+        "median": 12302676292,
+        "mad": 0,
+        "min": 12302676292,
+        "max": 12302676292,
+        "p95": 12302676292,
+        "aa_alternating_median_delta": null
+      },
+      "cpu_time_ns_median": 6994785000,
+      "peak_child_rss_bytes_median": 54788096,
+      "peak_tree_rss_bytes_median": 94224384,
+      "peak_tree_rss_valid_samples": 1
+    },
+    "startup_help/source_tree_managed_python": {
+      "valid_samples": 5,
+      "wall_time_ns": {
+        "median": 47976500,
+        "mad": 873917,
+        "min": 45380917,
+        "max": 48850417,
+        "p95": 48850417,
+        "aa_alternating_median_delta": 2111624
+      },
+      "cpu_time_ns_median": 42275000,
+      "peak_child_rss_bytes_median": 23085056,
+      "peak_tree_rss_bytes_median": 22249472,
+      "peak_tree_rss_valid_samples": 5
+    },
+    "startup_version/source_tree_managed_python": {
+      "valid_samples": 5,
+      "wall_time_ns": {
+        "median": 47271250,
+        "mad": 1096458,
+        "min": 46174792,
+        "max": 49368459,
+        "p95": 49368459,
+        "aa_alternating_median_delta": 551354
+      },
+      "cpu_time_ns_median": 42493000,
+      "peak_child_rss_bytes_median": 23461888,
+      "peak_tree_rss_bytes_median": 22249472,
+      "peak_tree_rss_valid_samples": 5
+    }
+  },
+  "raw_samples": "20260816-python-baseline-cold-macos-arm64.20260816T051607Z.65859.raw.jsonl",
+  "raw_samples_bytes": 55240,
+  "raw_samples_sha256": "e15d30e20f841051a7484ca02676c23c2e1fa165da2bb0a4da8c0013ffd060be"
+}

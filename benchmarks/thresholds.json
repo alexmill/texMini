@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "frozen_before_product_optimization": true,
+  "baseline": "20260816-python-baseline-full-v2-macos-arm64.json",
+  "baseline_git_commit": "1cb7a53798fbc39f9cb224005203db48aeae5461",
+  "baseline_candidate_id": "baseline-1cb7a537-final-harness",
+  "baseline_tree_content_sha256": "2ce58b16061b56af6cf1b5dd39701c413715542c898b0aedaa617c9804e36e53",
+  "policy": {
+    "improvement_requires": "The larger of 5% practical significance and three baseline MADs.",
+    "wall_regression_limit": "The larger of the scenario percentage below and three baseline MADs.",
+    "fully_provisioned_runtime_growth": "Up to 4096 logical bytes accommodates generated TeX metadata; larger growth fails.",
+    "network_samples": "Observational only; never a hard performance gate.",
+    "shared_ci": "Correctness and harness gates only; tight performance gates require a dedicated runner."
+  },
+  "scenarios": {
+    "startup_version/source_tree_managed_python": {
+      "max_wall_regression_percent": 10,
+      "max_peak_rss_regression_percent": 10
+    },
+    "startup_help/source_tree_managed_python": {
+      "max_wall_regression_percent": 10,
+      "max_peak_rss_regression_percent": 10
+    },
+    "installed_startup/warm": {
+      "max_wall_regression_percent": 10,
+      "max_peak_rss_regression_percent": 10
+    },
+    "build_simple/project_clean_runtime_provisioned": {
+      "max_wall_regression_percent": 7,
+      "max_peak_rss_regression_percent": 10
+    },
+    "build_simple/project_noop": {
+      "max_wall_regression_percent": 7,
+      "max_peak_rss_regression_percent": 10
+    },
+    "build_simple/project_incremental_one_line": {
+      "max_wall_regression_percent": 7,
+      "max_peak_rss_regression_percent": 10
+    },
+    "diagnostic_failure/project_clean_runtime_provisioned": {
+      "max_wall_regression_percent": 7,
+      "max_peak_rss_regression_percent": 10
+    },
+    "diagnostic_incomplete/project_clean_runtime_provisioned": {
+      "max_wall_regression_percent": 7,
+      "max_peak_rss_regression_percent": 10
+    }
+  },
+  "default_scenario": {
+    "max_wall_regression_percent": 10,
+    "max_peak_rss_regression_percent": 10,
+    "applies_to": "Every repeated, local, non-network scenario not named above."
+  },
+  "footprints": {
+    "wheel_max_growth_bytes": 5120,
+    "uv_tool_directory_max_growth_percent": 2,
+    "base_runtime_max_growth_bytes": 0,
+    "fully_provisioned_runtime_max_growth_bytes": 4096
+  },
+  "watch": {
+    "idle_cpu_fraction_one_core_max": 0.02,
+    "max_change_to_complete_regression_percent": 15
+  }
+}

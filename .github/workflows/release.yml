@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_VERSION: "0.11.20"
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -23,6 +26,8 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
       - name: Validate release tag
         id: release
         shell: bash
@@ -63,6 +68,41 @@ jobs:
           name: python-distributions
           path: dist/
           if-no-files-found: error
+
+  native-release-validation:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Run the frozen unit suite on the tagged source
+        run: uv run --frozen python -m unittest discover -s tests -v
+      - name: Build and check the universal wheel
+        shell: bash
+        run: |
+          uv build --wheel --out-dir dist
+          uv run --frozen python -c "from pathlib import Path; wheels = list(Path('dist').glob('*.whl')); assert len(wheels) == 1 and wheels[0].name.endswith('-py3-none-any.whl'), wheels"
+          uvx --from twine==6.2.0 twine check dist/*.whl
+      - name: Verify the uvx entry point at the release version
+        shell: bash
+        run: test "$(uvx --from . texmini --version)" = "${{ needs.package.outputs.version }}"
+      - name: Bootstrap the native runtime and compile on the exact tag
+        shell: bash
+        env:
+          TEXMINI_TINYTEX_ROOT: ${{ runner.temp }}/texmini-release-runtime/TinyTeX
+          TEXMINI_PACKAGE_MAP: ${{ runner.temp }}/texmini-release-runtime/package-map.json
+        run: |
+          uvx --from . texmini install-tinytex
+          uvx --from . texmini tests/fixtures/simple/simple.tex
+          test -s tests/fixtures/simple/simple.pdf
 
   docker-smoke:
     needs: package
@@ -113,7 +153,7 @@ jobs:
           test "$(stat -c %u "$arbitrary_dir/simple.pdf")" = 12345
 
   publish-pypi:
-    needs: [package, docker-smoke]
+    needs: [package, native-release-validation, docker-smoke]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -130,7 +170,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
 
   publish-ghcr:
-    needs: [package, docker-smoke]
+    needs: [package, native-release-validation, docker-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:

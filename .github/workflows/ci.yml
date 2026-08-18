@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UV_VERSION: "0.11.20"
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -23,29 +26,57 @@ jobs:
           docker run --rm \
             -v "$PWD:/repo" \
             -w /repo \
-            rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+            rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 \
+            .github/workflows/*.yml
 
   python:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+            platform-key: linux-x86_64
+          - os: ubuntu-24.04-arm
+            python-version: "3.12"
+            platform-key: linux-arm64
+          - os: macos-latest
+            python-version: "3.14"
+            platform-key: darwin
+          - os: macos-15-intel
+            python-version: "3.12"
+            platform-key: darwin
+          - os: windows-latest
+            python-version: "3.12"
+            platform-key: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-      - run: uv run --frozen python -m unittest discover -s tests -v
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv python install "${{ matrix.python-version }}"
+      - run: uv run --python "${{ matrix.python-version }}" --frozen python -m unittest discover -s tests -v
+      - name: Verify native platform selection
+        env:
+          EXPECTED_PLATFORM_KEY: ${{ matrix.platform-key }}
+        run: uv run --python "${{ matrix.python-version }}" --frozen python -c "import os; from texmini.runtime import tinytex_platform_key; actual = tinytex_platform_key(); expected = os.environ['EXPECTED_PLATFORM_KEY']; assert actual == expected, (actual, expected)"
+      - name: Verify the canonical uvx entry point from the checkout
+        run: uvx --from . texmini --version
       - run: uv build --sdist --wheel
       - run: uvx --from twine==6.2.0 twine check dist/*
 
   uv-managed-smoke:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
       - name: Install the built wheel
         env:
           UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
@@ -151,7 +182,6 @@ jobs:
           test ! -e build/publication.synctex.gz
           test -s build/publication.pdf
       - name: Exercise continuous rebuilding
-        if: runner.os == 'Linux'
         env:
           UV_TOOL_DIR: ${{ runner.temp }}/texmini-tools
           UV_TOOL_BIN_DIR: ${{ runner.temp }}/texmini-bin
@@ -161,7 +191,7 @@ jobs:
 
   minimal-linux-smoke:
     runs-on: ubuntu-latest
-    container: ghcr.io/astral-sh/uv:python3.12-bookworm-slim@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58
+    container: ghcr.io/astral-sh/uv:0.11.20-python3.12-trixie-slim@sha256:175e3414d0499474b8999b6c5a15d13ed34d2449732e61cc4253706209f000ec
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -189,12 +219,42 @@ jobs:
           /tmp/texmini-bin/texmini slides.tex
           test -s slides.pdf
 
+  musl-x64-uvx-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Bootstrap and compile through uvx on native musl x86-64
+        run: |
+          docker run --rm --platform linux/amd64 \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            -e TEXMINI_TINYTEX_ROOT=/tmp/texmini-runtime/TinyTeX \
+            -e TEXMINI_PACKAGE_MAP=/tmp/texmini-runtime/package-map.json \
+            ghcr.io/astral-sh/uv:0.11.20-python3.12-alpine@sha256:9758f18c3acb05ecf3a2bdb0a5097e07fb7fa92b1e482eafc8abfff87d5954e1 \
+            sh -euc '
+              apk add --no-cache perl
+              test "$(uname -m)" = x86_64
+              ldd --version 2>&1 | grep -qi musl
+              export UV_PROJECT_ENVIRONMENT=/tmp/texmini-project-env
+              test "$(uv run --frozen python -c "from texmini.runtime import tinytex_platform_key; print(tinytex_platform_key())")" = linuxmusl-x86_64
+              uvx --from . texmini --version
+              mkdir -p /tmp/project
+              cp tests/fixtures/simple/simple.tex /tmp/project/
+              cd /tmp/project
+              uvx --from /workspace texmini install-tinytex
+              uvx --from /workspace texmini simple.tex
+              test -s simple.pdf
+            '
+
   windows-native-smoke:
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
       - name: Configure isolated Windows paths
         shell: pwsh
         run: |

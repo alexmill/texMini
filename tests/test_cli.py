@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import os
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -99,6 +100,26 @@ class CliTest(unittest.TestCase):
         self.assertIn("--verbose", text)
         self.assertIn("--no-install", text)
         self.assertNotIn("--no-clean", text)
+
+    def test_help_and_version_do_not_import_build_runtime_or_watch(self) -> None:
+        blocked = {
+            "texmini.build": None,
+            "texmini.project": None,
+            "texmini.reporting": None,
+            "texmini.runtime": None,
+            "texmini.watch": None,
+        }
+        output = io.StringIO()
+        with (
+            patch.dict(sys.modules, blocked),
+            patch.dict(os.environ, {}, clear=True),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(cli.main(["--version"]), 0)
+            self.assertEqual(cli.main(["--help"]), 0)
+
+        self.assertIn("0.6.0", output.getvalue())
+        self.assertIn("Usage: texmini", output.getvalue())
 
     def _managed_root(self, directory: str) -> Path:
         root = Path(directory) / "TinyTeX"

@@ -2,6 +2,7 @@ import os
 import re
 from pathlib import Path
 
+from ._trace import span
 from .model import ENGINE_ARGS, SourceRequirements, TexMiniError
 from .reporting import Reporter
 
@@ -41,15 +42,15 @@ def read_source_file(path: str) -> str:
 def strip_tex_comments(source: str) -> str:
     uncommented: list[str] = []
     for line in source.splitlines(keepends=True):
-        for index, character in enumerate(line):
-            if character != "%":
-                continue
+        search_from = 0
+        while (index := line.find("%", search_from)) != -1:
             preceding_backslashes = 0
             cursor = index - 1
             while cursor >= 0 and line[cursor] == "\\":
                 preceding_backslashes += 1
                 cursor -= 1
             if preceding_backslashes % 2:
+                search_from = index + 1
                 continue
             line_ending = (
                 "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
@@ -113,12 +114,30 @@ def source_patterns() -> tuple[re.Pattern[str], ...]:
     global _source_patterns
     if _source_patterns is None:
         _source_patterns = (
-            re.compile(r"\\usepackage(?:\[[^\]]*\])?\{[^}]*\bbiblatex\b[^}]*\}"),
+            re.compile(
+                r"\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{[^}]*\bbiblatex\b[^}]*\}"
+            ),
             re.compile(r"\\documentclass(?:\[[^\]]*\])?\{([^}]+)\}"),
             re.compile(r"\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{([^}]+)\}"),
-            re.compile(r"^[A-Za-z0-9_.+-]+\.(sty|cls|bst)$"),
+            re.compile(r"^[A-Za-z0-9_.+:/\\-]+\.(sty|cls|bst|bbx|cbx)$"),
         )
     return _source_patterns
+
+
+def biblatex_source_styles(source: str) -> list[tuple[str, str]]:
+    styles: list[tuple[str, str]] = []
+    for options in re.findall(
+        r"\\(?:usepackage|RequirePackage)\s*\[([^\]]*)\]\s*\{[^}]*\bbiblatex\b[^}]*\}",
+        source,
+    ):
+        for kind, name in re.findall(
+            r"(?:^|,)\s*(style|bibstyle|citestyle)\s*=\s*\{?([^,}\s]+)", options
+        ):
+            if kind != "citestyle":
+                styles.append((name, "bbx"))
+            if kind != "bibstyle":
+                styles.append((name, "cbx"))
+    return styles
 
 
 def source_uses_bibliography(source: str) -> bool:
@@ -131,49 +150,151 @@ def source_uses_bibliography(source: str) -> bool:
     return bool(biblatex_package_pattern.search(source))
 
 
-def project_source_files(tex_file: str) -> list[Path]:
+def _project_source_inventory(tex_file: str) -> tuple[list[Path], list[Path]]:
     root = Path(tex_file).resolve()
     pending = [root]
-    discovered: list[Path] = []
+    analyzed: list[Path] = []
     seen: set[Path] = set()
+    local_dependencies: list[Path] = []
+    local_seen: set[Path] = set()
+    project_root = Path.cwd().resolve()
+    try:
+        root.relative_to(project_root)
+    except ValueError:
+        project_root = root.parent
+    project_index: dict[str, list[Path]] | None = None
     include_pattern = re.compile(r"\\(?:input|include|subfile)\s*\{([^}]+)\}")
     class_pattern = re.compile(r"\\documentclass(?:\[[^\]]*\])?\{([^}]+)\}")
     package_pattern = re.compile(
         r"\\(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{([^}]+)\}"
     )
+    bibliography_style_pattern = re.compile(r"\\bibliographystyle\s*\{([^}]+)\}")
+
+    def local_source(
+        parent: Path, name: str, extension: str
+    ) -> tuple[Path | None, list[Path]]:
+        nonlocal project_index
+        requested = name.strip()
+        candidate = parent / requested
+        if not candidate.suffix:
+            candidate = candidate.with_suffix(extension)
+        if candidate.is_file():
+            resolved = candidate.resolve()
+            return resolved, [resolved]
+
+        normalized = requested.replace("\\", "/")
+        if not Path(normalized).suffix:
+            normalized = f"{normalized}{extension}"
+        if normalized.startswith(("./", "../", "/")) or re.match(
+            r"^[A-Za-z]:/", normalized
+        ):
+            return None, []
+        if project_index is None:
+            project_index = {}
+            for directory, _, file_names in os.walk(project_root):
+                directory_path = Path(directory)
+                for file_name in file_names:
+                    if Path(file_name).suffix.lower() not in {
+                        ".tex",
+                        ".sty",
+                        ".cls",
+                        ".bst",
+                        ".bbx",
+                        ".cbx",
+                    }:
+                        continue
+                    project_index.setdefault(file_name, []).append(
+                        directory_path / file_name
+                    )
+        matches = project_index.get(Path(normalized).name, [])
+        if "/" in normalized:
+            matches = [
+                path
+                for path in matches
+                if (
+                    (relative := path.relative_to(project_root).as_posix())
+                    == normalized
+                    or relative.endswith(f"/{normalized}")
+                )
+            ]
+        resolved_matches = [path.resolve() for path in matches]
+        selected = resolved_matches[0] if len(resolved_matches) == 1 else None
+        return selected, resolved_matches
+
+    def record_local_candidates(
+        parent: Path,
+        name: str,
+        extension: str,
+        local_candidates: list[Path],
+        *,
+        analyze: bool = True,
+    ) -> None:
+        selected, matches = local_source(parent, name, extension)
+        for match in matches:
+            if match not in local_seen:
+                local_seen.add(match)
+                local_dependencies.append(match)
+        if analyze and selected is not None:
+            local_candidates.append(selected)
 
     while pending:
         path = pending.pop()
         if path in seen or not path.is_file():
             continue
         seen.add(path)
-        discovered.append(path)
+        analyzed.append(path)
         source = strip_tex_comments(read_source_file(os.fspath(path)))
         local_candidates: list[Path] = []
         for match in include_pattern.finditer(source):
-            name = match.group(1).strip()
-            candidate = path.parent / name
-            local_candidates.append(
-                candidate if candidate.suffix else candidate.with_suffix(".tex")
+            record_local_candidates(
+                path.parent, match.group(1), ".tex", local_candidates
             )
         for match in class_pattern.finditer(source):
-            local_candidates.append(path.parent / f"{match.group(1).strip()}.cls")
-        for match in package_pattern.finditer(source):
-            local_candidates.extend(
-                path.parent / f"{package.strip()}.sty"
-                for package in match.group(1).split(",")
+            record_local_candidates(
+                path.parent, match.group(1), ".cls", local_candidates
             )
-        pending.extend(
-            candidate.resolve() for candidate in local_candidates if candidate.is_file()
-        )
-    return discovered
+        for match in package_pattern.finditer(source):
+            for package in match.group(1).split(","):
+                record_local_candidates(
+                    path.parent, package, ".sty", local_candidates
+                )
+        for match in bibliography_style_pattern.finditer(source):
+            record_local_candidates(
+                path.parent,
+                match.group(1),
+                ".bst",
+                local_candidates,
+                analyze=False,
+            )
+        for name, extension in biblatex_source_styles(source):
+            record_local_candidates(
+                path.parent, name, f".{extension}", local_candidates
+            )
+        pending.extend(local_candidates)
+    return analyzed, [path for path in local_dependencies if path not in seen]
 
 
-def analyze_source_requirements(tex_file: str) -> SourceRequirements:
-    source_paths = project_source_files(tex_file)
-    source = "\n".join(
-        strip_tex_comments(read_source_file(os.fspath(path))) for path in source_paths
-    )
+def _project_source_files(tex_file: str) -> list[Path]:
+    analyzed, local_dependencies = _project_source_inventory(tex_file)
+    return [*analyzed, *local_dependencies]
+
+
+def project_source_files(tex_file: str) -> list[Path]:
+    with span("project_source_discovery") as trace:
+        discovered = _project_source_files(tex_file)
+        trace["source_count"] = len(discovered)
+        return discovered
+
+
+def _analyze_source_requirements(tex_file: str) -> SourceRequirements:
+    with span("project_source_discovery") as trace:
+        analyzed_paths, local_dependencies = _project_source_inventory(tex_file)
+        source_paths = [*analyzed_paths, *local_dependencies]
+        trace["source_count"] = len(source_paths)
+    source_texts = [
+        strip_tex_comments(read_source_file(os.fspath(path))) for path in analyzed_paths
+    ]
+    source = "\n".join(source_texts)
     found: list[str] = []
     seen: set[str] = set()
     _, documentclass_pattern, package_pattern, package_file_pattern = source_patterns()
@@ -191,6 +312,8 @@ def analyze_source_requirements(tex_file: str) -> SourceRequirements:
             add_file(package, "sty")
     for match in re.finditer(r"\\bibliographystyle\s*\{([^}]+)\}", source):
         add_file(match.group(1), "bst")
+    for name, extension in biblatex_source_styles(source):
+        add_file(name, extension)
 
     tools: list[str] = []
     package_names = {
@@ -199,7 +322,8 @@ def analyze_source_requirements(tex_file: str) -> SourceRequirements:
         if file_name.endswith(".sty")
     }
     biblatex_match = re.search(
-        r"\\usepackage(?:\[([^\]]*)\])?\{[^}]*\bbiblatex\b[^}]*\}", source
+        r"\\(?:usepackage|RequirePackage)(?:\[([^\]]*)\])?\{[^}]*\bbiblatex\b[^}]*\}",
+        source,
     )
     if biblatex_match:
         options = biblatex_match.group(1) or ""
@@ -241,8 +365,7 @@ def analyze_source_requirements(tex_file: str) -> SourceRequirements:
     include_graphics_pattern = re.compile(
         r"\\includegraphics(?:\[[^\]]*\])?\s*\{([^}]+)\}"
     )
-    for source_path in source_paths:
-        source_text = strip_tex_comments(read_source_file(os.fspath(source_path)))
+    for source_path, source_text in zip(analyzed_paths, source_texts):
         for match in include_graphics_pattern.finditer(source_text):
             figure = Path(match.group(1).strip())
             if figure.suffix.lower() == ".eps" or (
@@ -258,6 +381,15 @@ def analyze_source_requirements(tex_file: str) -> SourceRequirements:
         tuple(source_paths),
         uses_minted="minted" in package_names,
     )
+
+
+def analyze_source_requirements(tex_file: str) -> SourceRequirements:
+    with span("source_analysis") as trace:
+        requirements = _analyze_source_requirements(tex_file)
+        trace["source_count"] = len(requirements.sources)
+        trace["required_file_count"] = len(requirements.files)
+        trace["required_tool_count"] = len(requirements.tools)
+        return requirements
 
 
 def detect_tex_file(
@@ -379,9 +511,6 @@ def check_bibliography(
                 reporter.warning(
                     f"Warning: Bibliography file {bib_file} is not referenced in {tex_file}."
                 )
-                reporter.warning(
-                    f"You may need to add \\addbibresource{{{bib_file}}} to your document."
-                )
         return
 
     detected_bib_files = sorted(
@@ -395,9 +524,6 @@ def check_bibliography(
             reporter.warning(
                 f"Warning: Bibliography file {bib_file} is not referenced in {tex_file}."
             )
-            reporter.warning(
-                f"You may need to add \\addbibresource{{{bib_file}}} to your document."
-            )
     elif len(detected_bib_files) > 1:
         reporter.warning(
             f"Warning: Multiple bibliography files found: {' '.join(detected_bib_files)}"
@@ -408,13 +534,14 @@ def check_bibliography(
         )
 
 
-def tex_log_requirements(log_path: Path) -> tuple[list[str], list[str]]:
-    if not log_path.is_file():
+def _tex_log_requirements(log_path: Path) -> tuple[list[str], list[str]]:
+    try:
+        source = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
         return [], []
 
     found: list[str] = []
     seen: set[str] = set()
-    source = log_path.read_text(encoding="utf-8", errors="replace")
 
     def add_missing_file(missing_file: str) -> None:
         if "." not in missing_file:
@@ -463,3 +590,11 @@ def tex_log_requirements(log_path: Path) -> tuple[list[str], list[str]]:
     ):
         direct_packages.append("cm-super")
     return found, direct_packages
+
+
+def tex_log_requirements(log_path: Path) -> tuple[list[str], list[str]]:
+    with span("log_requirement_parse") as trace:
+        files, packages = _tex_log_requirements(log_path)
+        trace["missing_file_count"] = len(files)
+        trace["direct_package_count"] = len(packages)
+        return files, packages

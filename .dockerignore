@@ -2,7 +2,7 @@
 !Dockerfile
 !docker-entrypoint.sh
 !LICENSE
-!README.md
+!PYPI.md
 !pyproject.toml
 !src/
 !src/**
