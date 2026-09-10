@@ -2,6 +2,12 @@
 
 **LaTeX that just works, without managing a full TeX installation.**
 
+Compile a paper, thesis, slide deck, or existing LaTeX project with one command. texMini provides a real TeX Live environment that assembles itself around the documents you build.
+
+- **Only the TeX you use.** texMini starts with a compact foundation and installs packages only when your documents need them, so its shared TeX distribution stays no larger than your work requires.
+- **A repeatable setup.** texMini is a versioned Python package. [uv](https://docs.astral.sh/uv/) can run an exact release with its Python dependencies, while each texMini release pins the same TinyTeX starting point on every supported platform.
+- **Built for AI agents and automation.** One noninteractive command produces concise, stable output, actionable errors, and reliable exit codes that AI agents, scripts, and CI can understand.
+
 ## Quick start
 
 Install [uv](https://docs.astral.sh/uv/), open a terminal in your LaTeX project, and run:
@@ -10,9 +16,7 @@ Install [uv](https://docs.astral.sh/uv/), open a terminal in your LaTeX project,
 uvx texmini paper.tex
 ```
 
-That is the standard workflow on macOS, Linux, and Windows x86-64. Windows needs no other required system dependency. macOS and Linux also need Perl, which is usually already installed and is checked before texMini downloads anything. Optional GnuPG support enables TeX Live repository signature verification on every platform.
-
-On the first build, texMini downloads and verifies a private TinyTeX runtime, installs the packages required by `paper.tex`, and writes `paper.pdf` beside the source. Expect roughly 300–350 MB of disk use for the initial managed runtime; it grows as documents require more packages. Later builds reuse the runtime and incremental build state.
+Your PDF appears beside the source. Run the same command again whenever the document changes; texMini reuses its toolchain and build state to make later builds fast.
 
 Install the command if you use it regularly:
 
@@ -21,27 +25,23 @@ uv tool install texmini
 texmini paper.tex
 ```
 
-The most common variations are:
-
-```bash
-texmini --watch paper.tex
-texmini --engine lualatex paper.tex
-texmini --engine xelatex paper.tex
-texmini --shell-escape paper.tex
-texmini --clean paper.tex
-```
-
 ## How it works
 
 ```text
 paper.tex  ──▶  texmini  ──▶  auto-detect + install what is missing  ──▶  paper.pdf
 ```
 
-texMini is a self-contained LaTeX utility that grows with your documents instead of arriving as a multi-gigabyte desktop distribution. It builds upon [TinyTeX](https://yihui.org/tinytex/) and keeps its managed runtime under `~/.texmini`. texMini neither requires nor modifies a pre-existing system TeX installation.
+texMini keeps a private [TinyTeX](https://yihui.org/tinytex/) runtime under `~/.texmini`. It leaves any system-wide TeX installation alone and adds packages only when your projects need them.
 
-The utility uses `latexmk` as its build driver, while supporting pdfLaTeX, LuaLaTeX, XeLaTeX, and common document complications such as bibliographies (BibTeX, Biber), indices, glossaries, and nomenclatures out of the box. The wider TeX Live package ecosystem also remains available. Existing projects do not need to adopt a new document language or a different TeX engine.
+It supports pdfLaTeX, LuaLaTeX, XeLaTeX, bibliographies, indices, glossaries, and nomenclatures through `latexmk`. Existing projects keep using ordinary LaTeX; no new document language or project configuration is required.
 
-Each texMini release pins an official TinyTeX bundle and verifies its SHA-256 digest before installation. texMini then uses the same Python downloader for subsequent package requests while upstream `tlmgr` remains responsible for TeX Live package management.
+## Requirements and disk use
+
+- **All platforms:** [uv](https://docs.astral.sh/uv/) and internet access while texMini downloads its runtime or missing packages.
+- **Windows x86-64:** no additional required system dependency.
+- **macOS and Linux:** Perl, which is usually already installed. texMini checks for it before downloading anything.
+- **Disk space:** roughly 300–350 MB for the initial managed runtime under `~/.texmini`, growing as documents need more packages.
+- **Optional:** GnuPG enables TeX Live repository signature verification. Without it, texMini shows an advisory and the build continues. Install GnuPG through Homebrew on macOS, your operating system package manager on Linux, or a Windows GnuPG distribution.
 
 ## What happens during a build
 
@@ -72,8 +72,6 @@ If a directory contains exactly one top-level `.tex` document, the filename is o
 ```bash
 texmini
 ```
-
-TeX Live reports an advisory warning when GnuPG is unavailable because package repository signatures cannot be verified. The current build continues without verification. Install GnuPG through Homebrew on macOS, your operating system package manager on Linux, or a Windows GnuPG distribution so future package installations can be verified; the current build does not need to be rerun.
 
 ## Engines and options
 
