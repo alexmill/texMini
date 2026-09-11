@@ -586,7 +586,7 @@ class RuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "TinyTeX"
             self._write_managed_tools(root)
-            managed_tlmgr = runtime._tlmgr_command(root)
+            managed_tlmgr = [runtime.managed_tool(root, "tlmgr")]
             host_bin = Path(directory) / "host-bin"
             host_bin.mkdir()
             host_tlmgr = self._write_host_tool(host_bin, "tlmgr")

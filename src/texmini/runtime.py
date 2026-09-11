@@ -824,7 +824,7 @@ def install_tinytex_packages(
 ) -> subprocess.CompletedProcess[str]:
     env = tinytex_env(root, "tlmgr") if env is None else _tlmgr_env(env)
     command = [
-        *_tlmgr_command(root),
+        managed_tool(root, "tlmgr"),
         "--repository",
         load_runtime_manifest().repository,
         "install",
@@ -844,7 +844,7 @@ def install_tinytex_packages(
         if reporter is not None:
             reporter.status("Updating the managed TeX Live package manager...")
         result = run_command([
-            *_tlmgr_command(root), "--repository",
+            managed_tool(root, "tlmgr"), "--repository",
             load_runtime_manifest().repository, "update", "--self",
         ], **options)
         if result.returncode == 0:
