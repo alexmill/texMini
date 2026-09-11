@@ -556,7 +556,7 @@ class RuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "TinyTeX"
             self._write_managed_tools(root)
-            managed_tlmgr = runtime.managed_tool(root, "tlmgr")
+            managed_tlmgr = runtime._tlmgr_command(root)
             host_bin = Path(directory) / "host-bin"
             host_bin.mkdir()
             host_tlmgr = self._write_host_tool(host_bin, "tlmgr")
@@ -574,8 +574,8 @@ class RuntimeTest(unittest.TestCase):
 
         self.assertEqual(resolved, {"custom.sty": "custom-package"})
         arguments = run.call_args.args[0]
-        self.assertEqual(arguments[0], managed_tlmgr)
-        self.assertEqual(arguments[1:3], ["--repository", "https://tlnet.yihui.org"])
+        self.assertEqual(arguments[:len(managed_tlmgr)], managed_tlmgr)
+        self.assertEqual(arguments[len(managed_tlmgr):len(managed_tlmgr) + 2], ["--repository", "https://tlnet.yihui.org"])
         self.assertEqual(arguments[-1], r"/(?:custom\.sty)$")
         managed_env = run.call_args.kwargs["env"]
         self.assertNotIn("TEXLIVE_DOWNLOADER", managed_env)
@@ -586,7 +586,7 @@ class RuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "TinyTeX"
             self._write_managed_tools(root)
-            managed_tlmgr = runtime.managed_tool(root, "tlmgr")
+            managed_tlmgr = runtime._tlmgr_command(root)
             host_bin = Path(directory) / "host-bin"
             host_bin.mkdir()
             host_tlmgr = self._write_host_tool(host_bin, "tlmgr")
@@ -599,7 +599,26 @@ class RuntimeTest(unittest.TestCase):
             with patch("texmini.runtime.run_command", return_value=result) as run:
                 runtime.install_tinytex_packages(root, ["geometry"], env=env)
 
-        self.assertEqual(run.call_args.args[0][0], managed_tlmgr)
+        self.assertEqual(run.call_args.args[0][:len(managed_tlmgr)], managed_tlmgr)
+
+    def test_windows_package_search_bypasses_batch_shell(self) -> None:
+        root = Path("managed runtime")
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("sys.platform", "win32"),
+            patch("texmini.runtime.run_command", return_value=SimpleNamespace(
+                returncode=0, stdout=""
+            )) as run,
+        ):
+            runtime.resolve_tinytex_packages(
+                root, ["first.sty", "second.sty"], Path(directory) / "map.json", env={}
+            )
+        command = run.call_args.args[0]
+        self.assertEqual(command[:2], [
+            os.fspath(root / "tlpkg" / "tlperl" / "bin" / "perl.exe"),
+            os.fspath(root / "texmf-dist" / "scripts" / "texlive" / "tlmgr.pl"),
+        ])
+        self.assertEqual(command[-1], r"/(?:first\.sty|second\.sty)$")
 
     def test_resolver_batches_uncached_file_searches_and_maps_each_path(self) -> None:
         result = SimpleNamespace(
@@ -856,8 +875,8 @@ class RuntimeTest(unittest.TestCase):
 
             install_packages.assert_called_once()
             self.assertEqual(
-                runtime.managed_executable(root, "xelatex"),
-                os.fspath(
+                Path(runtime.managed_executable(root, "xelatex")),
+                (
                     root
                     / "bin"
                     / "platform"

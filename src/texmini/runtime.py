@@ -747,6 +747,16 @@ def common_texlive_package_for_file(file_name: str) -> str | None:
     return COMMON_TEXLIVE_FILE_PACKAGES.get(file_name)
 
 
+def _tlmgr_command(root: Path) -> list[str]:
+    if sys.platform == "win32":
+        # Bypass cmd.exe so package-search regexes are passed as literal arguments.
+        return [
+            os.fspath(root / "tlpkg" / "tlperl" / "bin" / "perl.exe"),
+            os.fspath(root / "texmf-dist" / "scripts" / "texlive" / "tlmgr.pl"),
+        ]
+    return [managed_tool(root, "tlmgr")]
+
+
 def resolve_tinytex_packages(
     root: Path,
     missing_files: list[str],
@@ -779,7 +789,7 @@ def resolve_tinytex_packages(
     for chunk in _tlmgr_search_chunks(uncached):
         result = run_command(
             [
-                managed_tool(root, "tlmgr"),
+                *_tlmgr_command(root),
                 "--repository",
                 load_runtime_manifest().repository,
                 "search",
@@ -814,7 +824,7 @@ def install_tinytex_packages(
 ) -> subprocess.CompletedProcess[str]:
     env = tinytex_env(root, "tlmgr") if env is None else _tlmgr_env(env)
     command = [
-        managed_tool(root, "tlmgr"),
+        *_tlmgr_command(root),
         "--repository",
         load_runtime_manifest().repository,
         "install",
@@ -833,7 +843,10 @@ def install_tinytex_packages(
     if "tlmgr itself needs to be updated" in (result.stdout or "").lower():
         if reporter is not None:
             reporter.status("Updating the managed TeX Live package manager...")
-        result = run_command([*command[:3], "update", "--self"], **options)
+        result = run_command([
+            *_tlmgr_command(root), "--repository",
+            load_runtime_manifest().repository, "update", "--self",
+        ], **options)
         if result.returncode == 0:
             result = run_command(command, **options)
     _report_tlmgr_failure(result, reporter)
