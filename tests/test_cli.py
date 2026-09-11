@@ -9,7 +9,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from texmini import cli, model
+from texmini import __version__, cli, model
 
 
 class CliTest(unittest.TestCase):
@@ -118,7 +118,7 @@ class CliTest(unittest.TestCase):
             self.assertEqual(cli.main(["--version"]), 0)
             self.assertEqual(cli.main(["--help"]), 0)
 
-        self.assertIn("0.6.0", output.getvalue())
+        self.assertIn(__version__, output.getvalue())
         self.assertIn("Usage: texmini", output.getvalue())
 
     def _managed_root(self, directory: str) -> Path:

@@ -206,7 +206,7 @@ Latexmk: Base name of generated files:
         self.assertEqual(layout.display_pdf, os.fspath(source.with_suffix(".pdf")))
 
     def test_layout_hook_fields_preserve_configured_paths(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="texmini | layout ") as directory:
+        with tempfile.TemporaryDirectory(prefix="texmini layout ") as directory:
             project = Path(directory) / "project"
             project.mkdir()
             values = [
@@ -475,8 +475,8 @@ Latexmk: Base name of generated files:
                 ):
                     env = build.tinytex_env(root)
                     self.assertEqual(
-                        build.executable_on_path_with_env("biber", env),
-                        os.fspath(host_biber),
+                        Path(build.executable_on_path_with_env("biber", env)),
+                        host_biber,
                     )
                     build.run_tinytex_backend(
                         "pdflatex", True, False, "paper.tex", ["paper.tex"]

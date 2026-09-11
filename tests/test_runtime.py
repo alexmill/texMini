@@ -266,6 +266,7 @@ class RuntimeTest(unittest.TestCase):
                 patch("sys.platform", "linux"),
                 patch("platform.machine", return_value=machine),
                 patch("platform.libc_ver", return_value=(libc, "1.0")),
+                patch("texmini.runtime.subprocess.run", return_value=SimpleNamespace(stdout="unknown")),
                 self.assertRaisesRegex(model.TexMiniError, "unsupported"),
             ):
                 runtime.tinytex_platform_key()
@@ -275,11 +276,51 @@ class RuntimeTest(unittest.TestCase):
             patch("sys.platform", "linux"),
             patch("platform.machine", return_value="x86_64"),
             patch("platform.libc_ver", return_value=("", "")),
+            patch("texmini.runtime.subprocess.run", side_effect=FileNotFoundError),
             patch("texmini.runtime.download") as download,
             self.assertRaisesRegex(model.TexMiniError, "unrecognized Linux C library"),
         ):
             runtime.install_tinytex_runtime(Path("TinyTeX"))
         download.assert_not_called()
+
+    def test_alpine_libc_is_identified_by_ldd(self) -> None:
+        with (
+            patch("sys.platform", "linux"),
+            patch("platform.machine", return_value="x86_64"),
+            patch("platform.libc_ver", return_value=("", "")),
+            patch("texmini.runtime.subprocess.run", return_value=SimpleNamespace(
+                returncode=1, stdout="musl libc (x86_64)\nVersion 1.2.5\n"
+            )),
+        ):
+            self.assertEqual(runtime.tinytex_platform_key(), "linuxmusl-x86_64")
+
+    def test_package_install_updates_outdated_manager_and_retries(self) -> None:
+        for refusal_status in (0, 255):
+            with (
+                self.subTest(refusal_status=refusal_status),
+                patch("texmini.runtime.managed_tool", return_value="/managed/tlmgr"),
+                patch("texmini.runtime.run_command", side_effect=[
+                    SimpleNamespace(returncode=refusal_status, stdout="tlmgr itself needs to be updated."),
+                    SimpleNamespace(returncode=0, stdout="updated"),
+                    SimpleNamespace(returncode=0, stdout="installed"),
+                ]) as run,
+            ):
+                result = runtime.install_tinytex_packages(Path("TinyTeX"), ["beamer"], env={})
+                self.assertEqual(result.stdout, "installed")
+                self.assertEqual(run.call_args_list[1].args[0][-2:], ["update", "--self"])
+                self.assertEqual(run.call_args_list[0].args, run.call_args_list[2].args)
+
+    def test_package_install_stops_when_manager_update_fails(self) -> None:
+        with (
+            patch("texmini.runtime.managed_tool", return_value="/managed/tlmgr"),
+            patch("texmini.runtime.run_command", side_effect=[
+                SimpleNamespace(returncode=255, stdout="tlmgr itself needs to be updated."),
+                SimpleNamespace(returncode=1, stdout="update failed"),
+            ]) as run,
+        ):
+            result = runtime.install_tinytex_packages(Path("TinyTeX"), ["beamer"], env={})
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(run.call_count, 2)
 
     def test_unsupported_platform_fails_before_download(self) -> None:
         with (
@@ -523,8 +564,8 @@ class RuntimeTest(unittest.TestCase):
             env = runtime.tinytex_env(root)
             env["PATH"] = f"{host_bin}{os.pathsep}{env['PATH']}"
             self.assertEqual(
-                runtime.executable_on_path_with_env("tlmgr", env),
-                os.fspath(host_tlmgr),
+                Path(runtime.executable_on_path_with_env("tlmgr", env)),
+                host_tlmgr,
             )
             with patch("texmini.runtime.run_command", return_value=result) as run:
                 resolved = runtime.resolve_tinytex_packages(
@@ -552,8 +593,8 @@ class RuntimeTest(unittest.TestCase):
             env = runtime.tinytex_env(root)
             env["PATH"] = f"{host_bin}{os.pathsep}{env['PATH']}"
             self.assertEqual(
-                runtime.executable_on_path_with_env("tlmgr", env),
-                os.fspath(host_tlmgr),
+                Path(runtime.executable_on_path_with_env("tlmgr", env)),
+                host_tlmgr,
             )
             with patch("texmini.runtime.run_command", return_value=result) as run:
                 runtime.install_tinytex_packages(root, ["geometry"], env=env)
@@ -798,8 +839,8 @@ class RuntimeTest(unittest.TestCase):
             env = runtime.tinytex_env(root)
             env["PATH"] = f"{root / 'bin' / 'platform'}{os.pathsep}{host_bin}"
             self.assertEqual(
-                runtime.executable_on_path_with_env("xelatex", env),
-                os.fspath(host_engine),
+                Path(runtime.executable_on_path_with_env("xelatex", env)),
+                host_engine,
             )
 
             def install(_root, packages, _env, _reporter):
@@ -838,8 +879,8 @@ class RuntimeTest(unittest.TestCase):
             env = runtime.tinytex_env(root)
             env["PATH"] = f"{root / 'bin' / 'platform'}{os.pathsep}{host_bin}"
             self.assertEqual(
-                runtime.executable_on_path_with_env("lualatex", env),
-                os.fspath(host_engine),
+                Path(runtime.executable_on_path_with_env("lualatex", env)),
+                host_engine,
             )
 
             with (
@@ -865,8 +906,8 @@ class RuntimeTest(unittest.TestCase):
             with patch.dict(os.environ, {"PATH": os.fspath(host_bin)}):
                 env = runtime.tinytex_env(root)
                 self.assertEqual(
-                    runtime.executable_on_path_with_env("pygmentize", env),
-                    os.fspath(pygmentize),
+                    Path(runtime.executable_on_path_with_env("pygmentize", env)),
+                    pygmentize,
                 )
 
     def test_runtime_prerequisite_retains_host_perl(self) -> None:
@@ -874,7 +915,7 @@ class RuntimeTest(unittest.TestCase):
             host_bin = Path(directory)
             perl = self._write_host_tool(host_bin, "perl")
             with patch.dict(os.environ, {"PATH": os.fspath(host_bin)}):
-                self.assertEqual(runtime.executable_on_path("perl"), os.fspath(perl))
+                self.assertEqual(Path(runtime.executable_on_path("perl")), perl)
                 runtime.check_runtime_prerequisites("darwin")
 
     def test_common_runtime_mappings_cover_font_and_eps_dependencies(self) -> None:

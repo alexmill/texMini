@@ -289,6 +289,17 @@ def tinytex_platform_key() -> str:
     if sys.platform.startswith("linux"):
         machine = platform.machine().lower()
         libc = platform.libc_ver()[0].strip().lower()
+        if not libc:
+            # CPython's libc scan does not identify musl in Alpine's Python binary.
+            try:
+                probe = subprocess.run(
+                    ["ldd", "--version"], stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, text=True, check=False,
+                )
+            except OSError:
+                probe = None
+            if probe is not None and "musl" in probe.stdout.lower():
+                libc = "musl"
         if libc not in {"glibc", "musl"}:
             raise _unsupported_platform(
                 f"unrecognized Linux C library {libc or 'unknown'}"
@@ -802,18 +813,29 @@ def install_tinytex_packages(
     reporter: Reporter | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = tinytex_env(root, "tlmgr") if env is None else _tlmgr_env(env)
-    result = run_command(
-        [
-            managed_tool(root, "tlmgr"),
-            "--repository",
-            load_runtime_manifest().repository,
-            "install",
-            *packages,
-        ],
+    command = [
+        managed_tool(root, "tlmgr"),
+        "--repository",
+        load_runtime_manifest().repository,
+        "install",
+        *packages,
+    ]
+    options = dict(
         reporter=reporter,
         env=env,
         check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
+    result = run_command(command, **options)
+    # Windows tlmgr can report this refusal while returning a successful status.
+    if "tlmgr itself needs to be updated" in (result.stdout or "").lower():
+        if reporter is not None:
+            reporter.status("Updating the managed TeX Live package manager...")
+        result = run_command([*command[:3], "update", "--self"], **options)
+        if result.returncode == 0:
+            result = run_command(command, **options)
     _report_tlmgr_failure(result, reporter)
     return result
 

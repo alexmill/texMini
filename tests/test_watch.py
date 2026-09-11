@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -46,7 +47,7 @@ class WatchTest(unittest.TestCase):
                 second = watch.watch_snapshot(root, layout, state)
 
             self.assertEqual(first, second)
-            self.assertEqual(scan.call_count, 1)
+            self.assertEqual(scan.call_count, 2 if os.name == "nt" else 1)
 
     def test_watch_snapshot_refreshes_for_creates_renames_and_deletes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

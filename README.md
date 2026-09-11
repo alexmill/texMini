@@ -305,14 +305,19 @@ uv run texmini paper.tex
 Run the test suite and validate the distributions:
 
 ```bash
-uv run python -m unittest discover -s tests -v
+uv run --group benchmark python -m unittest discover -s tests -v
 uv build --sdist --wheel
 uvx --from twine==6.2.0 twine check dist/*
 ```
 
+Keep reusable test inputs in `tests/fixtures/`. Put personal papers and local-only
+test projects in the ignored `tests/local/` or `local/` directories, and generated
+demos in `output/`. Generated LaTeX build files and new benchmark results are
+ignored; benchmark measurements are excluded from source distributions.
+
 The [before/after performance report](docs/performance-report.md) separates
 texMini-owned overhead from TeX Live and network time. Reproducible methodology,
-thresholds, and machine-readable results are in [`benchmarks`](benchmarks); the
+and thresholds are in [`benchmarks`](benchmarks); raw results stay local. The
 [architecture decision](docs/architecture/0001-optimize-python-orchestrator.md)
 explains why an optimized universal Python wheel beat Rust, Go, rewrite, and
 hybrid alternatives for this workload.

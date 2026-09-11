@@ -99,7 +99,7 @@ threshold.
 
 ## Regression Policy
 
-[`thresholds.json`](thresholds.json) was frozen against the checked-in baseline
+[`thresholds.json`](thresholds.json) was frozen against the historical local baseline
 before product optimizations. The comparator requires both its exact baseline
 basename, candidate ID, Git commit, and candidate-tree content hash, preventing
 an arbitrary result from being substituted for the frozen control. For wall
@@ -115,8 +115,10 @@ fails independently.
 
 Shared CI should enforce harness integrity and behavior, not tight latency
 limits. Performance gates require a stable dedicated runner. Baseline and final
-JSON plus raw JSONL observations belong in `benchmarks/results/`; do not edit
-historical schema-1 or schema-2 records.
+JSON plus raw JSONL observations belong in the ignored `benchmarks/results/`
+directory. Keep these machine-specific outputs local; do not commit them or
+include them in packages. The historical baseline is not supplied in fresh
+clones, so the frozen comparison requires a separately retained local copy.
 
 The comparator gates every repeated, local, non-network scenario independently;
 the named core thresholds are stricter, while a default ceiling covers all

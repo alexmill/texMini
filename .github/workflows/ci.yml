@@ -56,7 +56,7 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
       - run: uv python install "${{ matrix.python-version }}"
-      - run: uv run --python "${{ matrix.python-version }}" --frozen python -m unittest discover -s tests -v
+      - run: uv run --python "${{ matrix.python-version }}" --frozen --group benchmark python -m unittest discover -s tests -v
       - name: Verify native platform selection
         env:
           EXPECTED_PLATFORM_KEY: ${{ matrix.platform-key }}
@@ -107,6 +107,7 @@ jobs:
           test -n "$tex_bin"
           test -x "$tex_bin/latexmk"
           test -x "$tex_bin/pdflatex"
+          PATH="$tex_bin:$PATH" tlmgr update --self
           PATH="$tex_bin:$PATH" tlmgr install geometry
           PATH="$tex_bin:$PATH" tlmgr remove --force geometry
           cd "$RUNNER_TEMP/engines/pdflatex"

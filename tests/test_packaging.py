@@ -9,6 +9,8 @@ import unittest
 from importlib.metadata import metadata
 from pathlib import Path
 
+from texmini import __version__
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -45,7 +47,7 @@ class PackagingTest(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            self.assertEqual(version.stdout.strip(), "0.6.0")
+            self.assertEqual(version.stdout.strip(), __version__)
 
             help_result = subprocess.run(
                 [str(executable), "--help"],
@@ -101,6 +103,9 @@ class PackagingTest(unittest.TestCase):
             with tarfile.open(archive, "r:gz") as distribution:
                 names = distribution.getnames()
 
+        self.assertFalse(any("/benchmarks/results/" in name for name in names))
+        self.assertFalse(any("/tests/local/" in name for name in names))
+        self.assertFalse(any("/output/" in name for name in names))
         self.assertTrue(
             any(name.endswith("/benchmarks/benchmark.py") for name in names)
         )
@@ -206,7 +211,7 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("ref: ${{ github.sha }}", native_job)
         self.assertIn("version: ${{ env.UV_VERSION }}", native_job)
         self.assertIn(
-            "uv run --frozen python -m unittest discover -s tests -v", native_job
+            "uv run --frozen --group benchmark python -m unittest discover -s tests -v", native_job
         )
         self.assertIn("uv build --wheel --out-dir dist", native_job)
         self.assertIn("-py3-none-any.whl", native_job)

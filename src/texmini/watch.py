@@ -159,6 +159,9 @@ class _WatchState:
         return project_root, pdf_path
 
     def directories_changed(self) -> bool:
+        # Windows directory timestamps need not change after a child is renamed.
+        if os.name == "nt":
+            return True
         if not self.project_scan_complete or not self.directories:
             return True
         return any(

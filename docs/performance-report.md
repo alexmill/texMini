@@ -31,6 +31,11 @@ XZ, or Pygments work.
 
 ## Provenance and validity
 
+The measurements below describe a historical local run. Raw result files are
+kept locally in the ignored `benchmarks/results/` directory and are not included
+in fresh clones or published packages. Filenames below identify that local
+evidence; running the benchmark creates new measurements.
+
 | Evidence | Baseline | Final |
 | --- | --- | --- |
 | Candidate | `baseline-1cb7a537-final-harness` | `optimized-python-final` |
@@ -38,14 +43,14 @@ XZ, or Pygments work.
 | Target tree SHA-256 | `2ce58b16061b56af6cf1b5dd39701c413715542c898b0aedaa617c9804e36e53` | `65f0cd516c2c64fcdf5b5bcb905201d369d1559e6c30c7b08e9ec3bc6dc1feb4` |
 | Harness tree SHA-256 | `65f0cd516c2c64fcdf5b5bcb905201d369d1559e6c30c7b08e9ec3bc6dc1feb4` | same |
 | UTC start | `20260816T045928Z` | `20260816T050824Z` |
-| Full result | [JSON](../benchmarks/results/20260816-python-baseline-full-v2-macos-arm64.json) · [raw JSONL](../benchmarks/results/20260816-python-baseline-full-v2-macos-arm64.20260816T045928Z.37206.raw.jsonl) | [JSON](../benchmarks/results/20260816-python-final-full-macos-arm64.json) · [raw JSONL](../benchmarks/results/20260816-python-final-full-macos-arm64.20260816T050824Z.52919.raw.jsonl) |
+| Full result | JSON (`20260816-python-baseline-full-v2-macos-arm64.json`) · raw JSONL (`20260816-python-baseline-full-v2-macos-arm64.20260816T045928Z.37206.raw.jsonl`) | JSON (`20260816-python-final-full-macos-arm64.json`) · raw JSONL (`20260816-python-final-full-macos-arm64.20260816T050824Z.52919.raw.jsonl`) |
 | Raw bytes / SHA-256 | 635,775 / `aa52bb8a16af778d498bd2989e8c3e0841f687f0e7269c406d7a781f64f30f2e` | 639,561 / `d3a298d37f517a6baf4e10588ce1da25dcd9ca9af1f71ec80f1972f1ee30f602` |
 
 Both target and harness fingerprints were stable from the start to the end of
 each run. The comparator re-read the raw JSONL, verified byte counts and SHA-256
 digests, required exact equality with the embedded samples, recomputed the
 summaries from those samples, and matched the frozen baseline filename, commit,
-candidate, and tree identity. The machine-readable [comparison](../benchmarks/results/20260816-python-before-after-macos-arm64.json)
+candidate, and tree identity. The machine-readable comparison (`20260816-python-before-after-macos-arm64.json`)
 records `environment_matches: true`, 54 passing checks, and no failures.
 
 The reference host was macOS 15.6.1 (`Darwin 24.6.0`) on an Apple M2 Ultra with
@@ -193,10 +198,10 @@ Single observations of uncached uvx acquisition (2,181.740 ms to 824.601 ms),
 performance gates.
 
 The separate empty-runtime pair began with no runtime template and no package
-map. Its raw-linked results are [baseline JSON](../benchmarks/results/20260816-python-baseline-cold-macos-arm64.json),
-[baseline JSONL](../benchmarks/results/20260816-python-baseline-cold-macos-arm64.20260816T051607Z.65859.raw.jsonl),
-[final JSON](../benchmarks/results/20260816-python-final-cold-macos-arm64.json),
-and [final JSONL](../benchmarks/results/20260816-python-final-cold-macos-arm64.20260816T051703Z.66772.raw.jsonl).
+map. Its local result files are baseline JSON (`20260816-python-baseline-cold-macos-arm64.json`),
+baseline JSONL (`20260816-python-baseline-cold-macos-arm64.20260816T051607Z.65859.raw.jsonl`),
+final JSON (`20260816-python-final-cold-macos-arm64.json`),
+and final JSONL (`20260816-python-final-cold-macos-arm64.20260816T051703Z.66772.raw.jsonl`).
 Raw linkage and summaries verify for all 35 samples in each result. The one
 authoritative first-build observation was 12,302.676 ms baseline versus
 9,104.921 ms final (-26.0%), but this is explicitly observational because it

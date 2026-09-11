@@ -39,7 +39,8 @@ Before implementation, focused probes isolated the important owned costs:
 The raw no-op result also establishes the scale of the remaining work: TeX and
 `latexmk` already cost several times the optimized Python CLI startup, while
 package installation and cold acquisition take seconds. The authoritative
-baseline/final distributions are kept in `benchmarks/results/` and summarized
+baseline/final distributions are kept locally in the ignored
+`benchmarks/results/` directory and summarized
 in `docs/performance-report.md`; network-dependent observations are not used as
 deterministic performance gates.
 
